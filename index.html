@@ -149,8 +149,8 @@ svg{display:block;width:100%;overflow:visible}
     <div class="ni" data-pg="settings" onclick="nav(this)"><span class="ico">⚙️</span>Settings</div>
   </nav>
   <div class="sfooter">
-    <div style="color:var(--amb);font-weight:600;font-size:11px;margin-bottom:2px">Oct 2024 – Jan 2026</div>
-    <div>241 days · 15 months</div>
+    <div style="color:var(--amb);font-weight:600;font-size:11px;margin-bottom:2px" id="sf-range">Oct 2024 – Jan 2026</div>
+    <div id="sf-stats">241 days · 15 months</div>
     <label style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--amb2);background:rgba(200,129,58,.1);border:1px solid var(--brd);border-radius:7px;padding:6px 9px;margin-top:8px;cursor:pointer">
       📁 Upload New Excel<input type="file" accept=".xlsx" style="display:none" onchange="handleUp(this)"/>
     </label>
@@ -162,6 +162,10 @@ svg{display:block;width:100%;overflow:visible}
     <div style="display:flex;align-items:center;gap:10px">
       <div class="spill"><div class="sdot"></div>Live Data</div>
       <label class="ubtn">📁 Upload Excel<input type="file" accept=".xlsx" style="display:none" onchange="handleUp(this)"/></label>
+    </div>
+    <div style="display:flex;gap:5px;margin-top:7px">
+      <button onclick="var ts=saveToStorage();showBanner('💾 Data saved — '+getStorageSize()+' used · will restore on page refresh','var(--grn)');var ind=document.querySelector('.sf-ind');if(!ind){ind=document.createElement('div');ind.className='sf-ind';ind.style.cssText='margin-top:6px;font-size:10px;padding:4px 8px;background:rgba(76,175,80,.12);border:1px solid rgba(76,175,80,.3);border-radius:6px;color:#4CAF50;line-height:1.4';document.querySelector('.sfooter').appendChild(ind);}ind.innerHTML='💾 Saved · '+getStorageSize()+'<br><small style=\'color:var(--txt3)\'>'+ts+'</small>';" style="flex:1;background:rgba(76,175,80,.15);border:1px solid rgba(76,175,80,.35);border-radius:7px;padding:6px 4px;font-size:10px;color:#4CAF50;cursor:pointer;font-weight:700">💾 Save Data</button>
+      <button onclick="if(confirm('This will clear all saved data and reload with the original hardcoded defaults. Are you sure?')){clearStorage();location.reload();}" style="flex:1;background:rgba(239,83,80,.1);border:1px solid rgba(239,83,80,.3);border-radius:7px;padding:6px 4px;font-size:10px;color:var(--red);cursor:pointer;font-weight:600">🗑 Reset</button>
     </div>
   </div>
   <div class="content">
@@ -560,7 +564,18 @@ function handleUp(input){
       if(parsed.products.length > 0) PR = parsed.products;
       recompute();
       refreshAll();
-      showBanner("✅ Loaded "+file.name+" — "+M.length+" months · "+DD.length+" daily records · "+PR.length+" products", "var(--grn)");
+      // Auto-save to localStorage so data persists on refresh
+      var ts = saveToStorage();
+      showBanner("✅ Loaded & saved: "+file.name+" — "+M.length+" months · "+DD.length+" daily records · "+PR.length+" products · 💾 Data persists on refresh", "var(--grn)");
+      // Update sidebar save indicator
+      var sf = document.querySelector(".sfooter .save-indicator");
+      if(!sf){
+        sf = document.createElement("div");
+        sf.className = "save-indicator";
+        sf.style.cssText = "margin-top:6px;font-size:10px;padding:5px 8px;background:rgba(76,175,80,.12);border:1px solid rgba(76,175,80,.3);border-radius:6px;color:#4CAF50";
+        document.querySelector(".sfooter").appendChild(sf);
+      }
+      sf.innerHTML = "💾 Saved · "+getStorageSize()+"<br><span style=\'color:var(--txt3);font-size:9px\'>"+(ts||"")+"</span>";
     } catch(err){
       showBanner("❌ Parse error: "+err.message+" — Check console for details", "var(--red)");
       console.error("Parse error:", err);
@@ -886,6 +901,8 @@ function setSetting(key, val) {
   if(["targetGM","targetNM","markupMode","markupPct","vatRate","vatIncl"].indexOf(key) >= 0) {
     ["prod","price","fin","ai"].forEach(function(pg){ BUILT[pg]=false; if(BUILD[pg]){BUILD[pg]();BUILT[pg]=true;} });
   }
+  // Auto-save settings changes to localStorage
+  try { localStorage.setItem("8oz_settings", JSON.stringify(CFG)); } catch(e) {}
 }
 
 // Override formatters to use CFG currency
@@ -2214,6 +2231,8 @@ BUILD.inv=function(){
     if(field==="cost"||field==="mu"||field==="stk") val=parseFloat(val)||0;
     it[field]=val;
     BUILT.inv=false; BUILD.inv(); BUILT.inv=true;
+    // Auto-save inventory to localStorage
+    try { localStorage.setItem("8oz_inventory_data", JSON.stringify(window.INV_EDIT)); } catch(e) {}
   };
   window.invAdd = function(){
     var newId = Date.now();
@@ -3111,7 +3130,46 @@ BUILD.settings=function(){
     +" style='background:rgba(239,83,80,.12);border:1px solid rgba(239,83,80,.35);color:var(--red);border-radius:9px;padding:9px 22px;cursor:pointer;font-size:12px;font-weight:700'>⟳ Reset to Defaults</button>"
     +"<button onclick=\"var s=JSON.stringify(CFG);navigator.clipboard.writeText(s).then(function(){showBanner('✅ Settings copied to clipboard','var(--grn)');});\""
     +" style='background:var(--bg3);border:1px solid var(--brd);color:var(--txt2);border-radius:9px;padding:9px 22px;cursor:pointer;font-size:12px'>📋 Copy Settings JSON</button>"
-    +"</div>";
+    +"</div>"
+
+  // ── DATA PERSISTENCE SECTION ──────────────────────────────────────
+  +"<div class='card' style='margin-top:14px;border-top:3px solid var(--amb)'>"
+  +"<div class='ctitle'>💾 Data Persistence & Backup</div>"
+  +"<div class='csub'>Manage saved data · uploaded Excel data and all settings survive page refresh when saved</div>"
+  +"<div style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px'>"
+  +(function(){
+      var ts  = getSaveTimestamp();
+      var sz  = getStorageSize();
+      var has = !!localStorage.getItem('8oz_monthly_data');
+      var saved_m  = has ? JSON.parse(localStorage.getItem('8oz_monthly_data')||'[]') : [];
+      var saved_dd = has ? JSON.parse(localStorage.getItem('8oz_daily_data')||'[]')   : [];
+      return "<div style='background:var(--bg3);border-radius:var(--r);padding:14px'>"
+        +"<div style='font-size:10px;font-weight:700;color:var(--txt3);letter-spacing:.07em;margin-bottom:10px'>📊 STORAGE STATUS</div>"
+        +"<div style='display:flex;align-items:center;gap:7px;margin-bottom:8px'>"
+        +"<div style='width:9px;height:9px;border-radius:50%;background:"+(has?'#4CAF50':'var(--red)')+"'></div>"
+        +"<span style='font-size:12px;font-weight:700;color:"+(has?'#4CAF50':'var(--red)')+"'>"+(has?'Saved data active':'No saved data')+"</span></div>"
+        +(has
+          ? "<div style='font-size:11px;color:var(--txt2);margin-bottom:3px'>"+ saved_m.length +" months · "+ saved_dd.length +" daily records</div>"
+          : "<div style='font-size:11px;color:var(--txt3);margin-bottom:3px'>Using original hardcoded defaults</div>")
+        +"<div style='font-size:11px;color:var(--txt2);margin-bottom:3px'>Size: <span style='color:var(--amb);font-weight:700'>"+ sz +"</span></div>"
+        +(ts?"<div style='font-size:10px;color:var(--txt3)'>Saved: <span style='color:var(--txt2)'>"+ ts +"</span></div>":"")
+        +"<div style='margin-top:10px;font-size:10px;color:var(--txt3);line-height:1.5'>Stored in browser localStorage. Data stays until you clear it or clear browser data.</div>"
+        +"</div>";
+    })()
+  +"<div style='background:var(--bg3);border-radius:var(--r);padding:14px'>"
+  +"<div style='font-size:10px;font-weight:700;color:var(--txt3);letter-spacing:.07em;margin-bottom:10px'>📋 WHAT GETS SAVED</div>"
+  +['📅 All monthly P&L data','📊 Daily sales records (all)','☕ Product prices & costs','📦 Inventory stock edits','⚙️ Theme & appearance settings','💱 Currency & locale settings','📐 Margin & markup targets','🎯 Break-even & META values'].map(function(item){
+    return "<div style='font-size:11px;color:var(--txt2);padding:4px 0;border-bottom:1px solid var(--brd2);display:flex;align-items:center;gap:6px'>"+ item +"</div>";
+  }).join('')
+  +"</div>"
+  +"<div style='background:var(--bg3);border-radius:var(--r);padding:14px'>"
+  +"<div style='font-size:10px;font-weight:700;color:var(--txt3);letter-spacing:.07em;margin-bottom:10px'>⚡ ACTIONS</div>"
+  +"<div style='display:flex;flex-direction:column;gap:8px'>"
+  +"<button onclick=\"var ts=saveToStorage();BUILT.settings=false;BUILD.settings();BUILT.settings=true;showBanner('💾 All data saved — '+getStorageSize()+' used. Data will restore on next refresh.','var(--grn)');\" style='background:rgba(76,175,80,.15);border:1px solid rgba(76,175,80,.4);color:#4CAF50;border-radius:9px;padding:10px 14px;cursor:pointer;font-size:12px;font-weight:700;text-align:left;width:100%'>💾 Save All Data Now</button>"
+  +"<button onclick=\"if(confirm('Export data as JSON backup file?')){try{var exp={M:M,DD:DD,PR:PR,INV:window.INV_EDIT||INV,META:{avgP:META.avgP,avgC:META.avgC,fix:META.fix,inv:META.inv,tgt:META.tgt},CFG:CFG,savedAt:new Date().toISOString()};var blob=new Blob([JSON.stringify(exp,null,2)],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='8ounce_backup_'+new Date().toISOString().slice(0,10)+'.json';a.click();}catch(e){alert('Export failed: '+e.message);}}\" style='background:rgba(66,165,245,.12);border:1px solid rgba(66,165,245,.35);color:var(--blu);border-radius:9px;padding:10px 14px;cursor:pointer;font-size:12px;font-weight:600;text-align:left;width:100%'>📤 Export JSON Backup</button>"
+  +"<button onclick=\"if(confirm('Clear all saved data and reload with original defaults? Cannot be undone.')){clearStorage();location.reload();}\" style='background:rgba(239,83,80,.1);border:1px solid rgba(239,83,80,.35);color:var(--red);border-radius:9px;padding:10px 14px;cursor:pointer;font-size:12px;font-weight:600;text-align:left;width:100%'>🗑 Clear Data & Reset to Defaults</button>"
+  +"</div></div>"
+  +"</div></div>";
 
   document.getElementById("p-settings").innerHTML=h;
 };
@@ -3783,7 +3841,116 @@ function lvImportCSV(input, type) {
   reader.readAsText(file);
 }
 
+
+// ══════════════════════ PERSISTENCE (localStorage) ════════════════════
+
+var STORAGE_KEY_M   = "8oz_monthly_data";
+var STORAGE_KEY_DD  = "8oz_daily_data";
+var STORAGE_KEY_PR  = "8oz_product_data";
+var STORAGE_KEY_INV = "8oz_inventory_data";
+var STORAGE_KEY_CFG = "8oz_settings";
+var STORAGE_KEY_META= "8oz_meta";
+var STORAGE_KEY_TS  = "8oz_last_saved";
+
+// Save all current data to localStorage
+function saveToStorage() {
+  try {
+    localStorage.setItem(STORAGE_KEY_M,   JSON.stringify(M));
+    localStorage.setItem(STORAGE_KEY_DD,  JSON.stringify(DD));
+    localStorage.setItem(STORAGE_KEY_PR,  JSON.stringify(PR));
+    localStorage.setItem(STORAGE_KEY_META,JSON.stringify({avgP:META.avgP, avgC:META.avgC, fix:META.fix, inv:META.inv, tgt:META.tgt}));
+    if(window.INV_EDIT) localStorage.setItem(STORAGE_KEY_INV, JSON.stringify(window.INV_EDIT));
+    localStorage.setItem(STORAGE_KEY_CFG, JSON.stringify(CFG));
+    var ts = new Date().toLocaleString("en-PH");
+    localStorage.setItem(STORAGE_KEY_TS, ts);
+    return ts;
+  } catch(e) {
+    console.error("Save failed:", e);
+    return null;
+  }
+}
+
+// Load data from localStorage — returns true if data was found
+function loadFromStorage() {
+  try {
+    var mRaw   = localStorage.getItem(STORAGE_KEY_M);
+    var ddRaw  = localStorage.getItem(STORAGE_KEY_DD);
+    var prRaw  = localStorage.getItem(STORAGE_KEY_PR);
+    var invRaw = localStorage.getItem(STORAGE_KEY_INV);
+    var cfgRaw = localStorage.getItem(STORAGE_KEY_CFG);
+    var metaRaw= localStorage.getItem(STORAGE_KEY_META);
+
+    if(!mRaw) return false; // nothing saved yet
+
+    var savedM = JSON.parse(mRaw);
+    if(!savedM || savedM.length === 0) return false;
+
+    // Restore all data arrays
+    M  = savedM;
+    if(ddRaw)  { var savedDD = JSON.parse(ddRaw);  if(savedDD && savedDD.length > 0)  { DD = savedDD; DDAY = DD.slice(); } }
+    if(prRaw)  { var savedPR = JSON.parse(prRaw);  if(savedPR && savedPR.length > 0)    PR = savedPR; }
+    if(invRaw) { var savedINV= JSON.parse(invRaw); if(savedINV && savedINV.length > 0)  window.INV_EDIT = savedINV; }
+    if(metaRaw){ var savedMeta=JSON.parse(metaRaw); if(savedMeta){ META.avgP=savedMeta.avgP||META.avgP; META.avgC=savedMeta.avgC||META.avgC; META.fix=savedMeta.fix||META.fix; META.inv=savedMeta.inv||META.inv; META.tgt=savedMeta.tgt||META.tgt; META.beCups=Math.round(META.fix/(META.avgP-META.avgC)); META.beRev=META.beCups*META.avgP; } }
+    if(cfgRaw) { var savedCFG=JSON.parse(cfgRaw);  if(savedCFG) Object.assign(CFG, savedCFG); }
+
+    return true;
+  } catch(e) {
+    console.error("Load failed:", e);
+    return false;
+  }
+}
+
+// Clear all saved data
+function clearStorage() {
+  try {
+    [STORAGE_KEY_M, STORAGE_KEY_DD, STORAGE_KEY_PR, STORAGE_KEY_INV,
+     STORAGE_KEY_CFG, STORAGE_KEY_META, STORAGE_KEY_TS].forEach(function(k){
+      localStorage.removeItem(k);
+    });
+    return true;
+  } catch(e) { return false; }
+}
+
+function getSaveTimestamp() {
+  try { return localStorage.getItem(STORAGE_KEY_TS); } catch(e) { return null; }
+}
+
+function getStorageSize() {
+  try {
+    var total = 0;
+    [STORAGE_KEY_M, STORAGE_KEY_DD, STORAGE_KEY_PR, STORAGE_KEY_INV, STORAGE_KEY_CFG, STORAGE_KEY_META].forEach(function(k){
+      var v = localStorage.getItem(k);
+      if(v) total += v.length;
+    });
+    return (total / 1024).toFixed(1) + " KB";
+  } catch(e) { return "unknown"; }
+}
+
 // ══════════════════════ INIT ══════════════════════════════════════════
+
+// Try to load saved data from localStorage first
+var _savedLoaded = loadFromStorage();
+if(_savedLoaded) {
+  recompute();
+  var _ts = getSaveTimestamp();
+  // Update sidebar footer to show saved data info
+  setTimeout(function(){
+    var sf = document.querySelector(".sfooter");
+    if(sf && M.length > 0){
+      var span = sf.querySelector(".save-indicator");
+      if(!span){
+        span = document.createElement("div");
+        span.className = "save-indicator";
+        span.style.cssText = "margin-top:6px;font-size:10px;padding:5px 8px;background:rgba(76,175,80,.12);border:1px solid rgba(76,175,80,.3);border-radius:6px;color:#4CAF50";
+        sf.appendChild(span);
+      }
+      span.innerHTML = "💾 Saved data loaded<br><span style='color:var(--txt3);font-size:9px'>"+(_ts||"")+"</span>";
+    }
+    // Apply saved theme/settings
+    applyTheme();
+  }, 100);
+}
+
 BUILD.exec();
 BUILT.exec=true;
 

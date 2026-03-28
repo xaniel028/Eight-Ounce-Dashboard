@@ -1,0 +1,1693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>8 Ounce Café — BI Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;500;600;700;800&display=swap');
+:root{
+  --bg:#0d0c0a; --bg1:#141210; --bg2:#1c1a16; --bg3:#242018; --bg4:#2e2a22;
+  --brd:rgba(255,210,120,.1); --brd2:rgba(255,210,120,.06);
+  --gold:#f5c842; --gold2:#e8a820; --gold3:rgba(245,200,66,.15);
+  --grn:#52c97a; --red:#f05252; --orn:#f59e42; --blu:#5ba4f5; --pur:#b07ef5;
+  --txt:#f0e8d0; --txt2:#a09070; --txt3:#5a5040;
+  --r:10px; --r2:16px;
+  --font:'Sora',sans-serif; --mono:'DM Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:var(--font);font-size:13px;min-height:100vh}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg1)}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px}
+
+/* ── LAYOUT ── */
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+.sidebar{background:var(--bg1);border-right:1px solid var(--brd);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.main{overflow-x:hidden}
+
+/* ── SIDEBAR ── */
+.sb-logo{padding:22px 20px 16px;border-bottom:1px solid var(--brd)}
+.sb-logo .cup{font-size:26px;margin-bottom:4px}
+.sb-logo h1{font-size:15px;font-weight:800;color:var(--gold);letter-spacing:-.01em}
+.sb-logo p{font-size:10px;color:var(--txt3);margin-top:2px}
+.sb-nav{flex:1;padding:10px 0}
+.sb-section{font-size:9px;font-weight:700;color:var(--txt3);letter-spacing:.1em;text-transform:uppercase;padding:12px 20px 6px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 20px;cursor:pointer;border-left:2px solid transparent;transition:all .15s;color:var(--txt2);font-size:12px}
+.nav-item:hover{background:var(--bg3);color:var(--txt)}
+.nav-item.active{background:var(--gold3);border-left-color:var(--gold);color:var(--gold);font-weight:600}
+.nav-item .ico{width:16px;text-align:center;font-size:13px}
+.sb-bottom{padding:16px 20px;border-top:1px solid var(--brd)}
+.save-status{font-size:10px;color:var(--txt3);margin-bottom:10px;line-height:1.5}
+.save-status .dot{width:7px;height:7px;border-radius:50%;background:var(--grn);display:inline-block;margin-right:4px;box-shadow:0 0 6px var(--grn)}
+.btn-sm{width:100%;padding:7px;border-radius:var(--r);border:1px solid var(--brd);background:var(--bg3);color:var(--txt2);font-size:11px;cursor:pointer;font-family:var(--font);transition:all .15s;margin-bottom:6px}
+.btn-sm:hover{background:var(--bg4);color:var(--txt)}
+.btn-sm.danger{border-color:rgba(240,82,82,.3);color:var(--red)}
+.btn-sm.danger:hover{background:rgba(240,82,82,.1)}
+
+/* ── TOPBAR ── */
+.topbar{background:var(--bg1);border-bottom:1px solid var(--brd);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.topbar-title{font-size:16px;font-weight:700;color:var(--txt)}
+.topbar-title span{color:var(--gold)}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.date-badge{background:var(--bg3);border:1px solid var(--brd);border-radius:20px;padding:5px 12px;font-size:11px;color:var(--txt2);font-family:var(--mono)}
+.target-badge{background:var(--gold3);border:1px solid rgba(245,200,66,.3);border-radius:20px;padding:5px 12px;font-size:11px;color:var(--gold);font-weight:600}
+
+/* ── PAGE CONTENT ── */
+.page{display:none;padding:24px 28px;animation:fadeIn .2s ease}
+.page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ── SECTION HEADER ── */
+.sec-header{margin-bottom:20px}
+.sec-header h2{font-size:20px;font-weight:800;color:var(--txt);letter-spacing:-.02em}
+.sec-header p{font-size:12px;color:var(--txt3);margin-top:3px}
+
+/* ── KPI GRID ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:24px}
+.kpi-card{background:var(--bg2);border:1px solid var(--brd);border-radius:var(--r2);padding:16px 14px;position:relative;overflow:hidden}
+.kpi-card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent,var(--gold));opacity:.6}
+.kpi-card .kpi-label{font-size:9px;font-weight:700;color:var(--txt3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.kpi-card .kpi-value{font-size:22px;font-weight:800;font-family:var(--mono);color:var(--txt);line-height:1}
+.kpi-card .kpi-sub{font-size:10px;color:var(--txt3);margin-top:5px}
+.kpi-card.good{--accent:var(--grn)}
+.kpi-card.warn{--accent:var(--orn)}
+.kpi-card.bad{--accent:var(--red)}
+
+/* ── CARDS ── */
+.card{background:var(--bg2);border:1px solid var(--brd);border-radius:var(--r2);padding:20px}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.card-title{font-size:14px;font-weight:700;color:var(--txt)}
+.card-sub{font-size:11px;color:var(--txt3);margin-top:2px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.mb{margin-bottom:16px}
+
+/* ── FORMS ── */
+.form-section{background:var(--bg2);border:1px solid var(--brd);border-radius:var(--r2);padding:20px;margin-bottom:16px}
+.form-section h3{font-size:13px;font-weight:700;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:7px}
+.form-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:10px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group label{font-size:10px;font-weight:600;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em}
+input,select,textarea{background:var(--bg3);border:1px solid var(--brd);border-radius:var(--r);color:var(--txt);font-size:12px;font-family:var(--font);padding:8px 10px;outline:none;transition:border .15s;width:100%}
+input:focus,select:focus{border-color:rgba(245,200,66,.4);background:var(--bg4)}
+input[type=number]{font-family:var(--mono)}
+select option{background:var(--bg3)}
+.btn{padding:9px 18px;border-radius:var(--r);border:none;font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
+.btn-primary{background:var(--gold);color:#0d0c0a}
+.btn-primary:hover{background:var(--gold2);transform:translateY(-1px)}
+.btn-secondary{background:var(--bg3);border:1px solid var(--brd);color:var(--txt2)}
+.btn-secondary:hover{background:var(--bg4)}
+.btn-danger{background:rgba(240,82,82,.15);border:1px solid rgba(240,82,82,.3);color:var(--red)}
+.btn-ghost{background:transparent;border:1px solid var(--brd);color:var(--txt3)}
+.btn-ghost:hover{border-color:var(--gold);color:var(--gold)}
+
+/* ── PRODUCT INPUT ROWS ── */
+.product-rows{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.product-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 32px;gap:8px;align-items:center;background:var(--bg3);border:1px solid var(--brd2);border-radius:var(--r);padding:8px 10px}
+.product-row .prod-name{font-size:12px;font-weight:600;color:var(--txt)}
+.product-row .prod-meta{font-size:10px;color:var(--txt3);margin-top:1px}
+.product-row input{text-align:center;padding:5px 8px}
+.del-btn{background:none;border:none;color:var(--txt3);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;transition:.15s}
+.del-btn:hover{background:rgba(240,82,82,.15);color:var(--red)}
+.add-prod-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.preset-btn{background:var(--bg3);border:1px solid var(--brd);border-radius:20px;padding:5px 12px;font-size:11px;color:var(--txt2);cursor:pointer;transition:.15s;font-family:var(--font)}
+.preset-btn:hover{background:var(--bg4);color:var(--gold);border-color:rgba(245,200,66,.3)}
+
+/* ── TABLES ── */
+.tbl-wrap{overflow-x:auto;border-radius:var(--r);border:1px solid var(--brd)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead{background:var(--bg3)}
+thead th{padding:10px 12px;text-align:right;font-size:9px;font-weight:700;color:var(--txt3);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+thead th:first-child{text-align:left}
+tbody tr{border-top:1px solid var(--brd2);transition:background .1s}
+tbody tr:hover{background:var(--bg3)}
+tbody td{padding:10px 12px;text-align:right;color:var(--txt2);font-family:var(--mono);font-size:12px}
+tbody td:first-child{text-align:left;font-family:var(--font);font-weight:600;color:var(--txt)}
+tbody td.left{text-align:left;font-family:var(--font)}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700}
+.badge-gold{background:var(--gold3);color:var(--gold);border:1px solid rgba(245,200,66,.3)}
+.badge-grn{background:rgba(82,201,122,.12);color:var(--grn);border:1px solid rgba(82,201,122,.3)}
+.badge-red{background:rgba(240,82,82,.1);color:var(--red);border:1px solid rgba(240,82,82,.25)}
+.badge-orn{background:rgba(245,158,66,.1);color:var(--orn);border:1px solid rgba(245,158,66,.25)}
+
+/* ── MARGIN INDICATORS ── */
+.mg-good{color:var(--grn);font-weight:700}
+.mg-ok{color:var(--orn);font-weight:700}
+.mg-bad{color:var(--red);font-weight:700}
+.highlight-row{background:rgba(245,200,66,.05) !important}
+.highlight-row td{color:var(--txt) !important}
+
+/* ── INSIGHTS ── */
+.insight-list{display:flex;flex-direction:column;gap:8px}
+.insight{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-radius:var(--r);border-left:3px solid var(--brd)}
+.insight.pos{background:rgba(82,201,122,.07);border-left-color:var(--grn)}
+.insight.neg{background:rgba(240,82,82,.07);border-left-color:var(--red)}
+.insight.warn{background:rgba(245,158,66,.07);border-left-color:var(--orn)}
+.insight.info{background:rgba(91,164,245,.07);border-left-color:var(--blu)}
+.insight .ico{font-size:14px;line-height:1.3;flex-shrink:0}
+.insight .txt{font-size:12px;color:var(--txt2);line-height:1.5}
+.insight .txt strong{color:var(--txt)}
+
+/* ── HISTORY ── */
+.history-list{display:flex;flex-direction:column;gap:8px}
+.history-item{background:var(--bg3);border:1px solid var(--brd2);border-radius:var(--r);padding:12px 14px;display:grid;grid-template-columns:110px 1fr 1fr 1fr 1fr 1fr 60px;align-items:center;gap:10px;transition:.15s}
+.history-item:hover{border-color:var(--brd)}
+.history-date{font-size:11px;font-weight:700;color:var(--txt2);font-family:var(--mono)}
+.history-val{text-align:right}
+.history-val .label{font-size:9px;color:var(--txt3);margin-bottom:2px}
+.history-val .val{font-size:12px;font-weight:600;font-family:var(--mono)}
+.history-del{background:none;border:none;color:var(--txt3);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;transition:.15s;margin-left:auto}
+.history-del:hover{background:rgba(240,82,82,.15);color:var(--red)}
+
+/* ── WEEKLY SUMMARY ── */
+.weekly-summary{background:var(--bg3);border:1px solid var(--brd);border-radius:var(--r2);padding:16px;margin-bottom:16px}
+.weekly-summary h4{font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:12px}
+.weekly-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.wk-stat{text-align:center}
+.wk-stat .wk-val{font-size:16px;font-weight:800;font-family:var(--mono);color:var(--gold)}
+.wk-stat .wk-label{font-size:9px;color:var(--txt3);margin-top:2px}
+
+/* ── PROGRESS BAR ── */
+.progress-wrap{background:var(--bg4);border-radius:4px;height:6px;overflow:hidden;margin-top:6px}
+.progress-bar{height:100%;border-radius:4px;transition:width .5s ease;background:var(--gold)}
+.progress-bar.low{background:var(--orn)}
+.progress-bar.hit{background:var(--grn)}
+
+/* ── CHART WRAPPER ── */
+.chart-wrap{position:relative;width:100%}
+.chart-wrap canvas{width:100% !important}
+
+/* ── SETTINGS ── */
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.setting-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--brd2)}
+.setting-label{font-size:12px;color:var(--txt2)}
+.setting-note{font-size:10px;color:var(--txt3);margin-top:2px}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:fixed;left:-240px;z-index:200;transition:left .25s;height:100vh}
+  .sidebar.open{left:0}
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .g2,.g3{grid-template-columns:1fr}
+  .history-item{grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .weekly-grid{grid-template-columns:repeat(3,1fr)}
+  .menu-btn{display:flex !important}
+}
+.menu-btn{display:none;align-items:center;justify-content:center;width:36px;height:36px;background:var(--bg3);border:1px solid var(--brd);border-radius:8px;cursor:pointer;font-size:16px}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:199}
+.overlay.show{display:block}
+
+/* ── EMPTY STATE ── */
+.empty{text-align:center;padding:40px 20px;color:var(--txt3)}
+.empty .icon{font-size:32px;margin-bottom:10px}
+.empty p{font-size:12px}
+
+/* ── TREND INDICATOR ── */
+.trend{font-size:10px;font-weight:700;display:inline-flex;align-items:center;gap:2px}
+.trend.up{color:var(--grn)}
+.trend.down{color:var(--red)}
+.trend.flat{color:var(--txt3)}
+
+/* ── TARGET PROGRESS ── */
+.target-section{background:var(--bg2);border:1px solid var(--brd);border-radius:var(--r2);padding:20px;margin-bottom:16px}
+.target-header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px}
+.target-pct{font-size:28px;font-weight:900;font-family:var(--mono)}
+.target-detail{font-size:11px;color:var(--txt3)}
+
+/* ── MONTH HISTORY CHART ── */
+.chart-container{background:var(--bg2);border:1px solid var(--brd);border-radius:var(--r2);padding:20px;margin-bottom:16px}
+</style>
+</head>
+<body>
+
+<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+<div class="app">
+<!-- ═══════════════════ SIDEBAR ═══════════════════ -->
+<aside class="sidebar" id="sidebar">
+  <div class="sb-logo">
+    <div class="cup">☕</div>
+    <h1>8 Ounce Café</h1>
+    <p>Business Intelligence v2.0</p>
+  </div>
+  <nav class="sb-nav">
+    <div class="sb-section">Dashboard</div>
+    <div class="nav-item active" onclick="showPage('summary')" id="nav-summary"><span class="ico">📊</span> Executive Summary</div>
+    <div class="nav-item" onclick="showPage('input')" id="nav-input"><span class="ico">✏️</span> Daily Input</div>
+    <div class="sb-section">Analysis</div>
+    <div class="nav-item" onclick="showPage('products')" id="nav-products"><span class="ico">☕</span> Product Performance</div>
+    <div class="nav-item" onclick="showPage('insights')" id="nav-insights"><span class="ico">💡</span> Smart Insights</div>
+    <div class="nav-item" onclick="showPage('history')" id="nav-history"><span class="ico">📅</span> History & Trends</div>
+    <div class="sb-section">System</div>
+    <div class="nav-item" onclick="showPage('settings')" id="nav-settings"><span class="ico">⚙️</span> Settings</div>
+  </nav>
+  <div class="sb-bottom">
+    <div class="save-status" id="save-status"><span class="dot"></span>Data saved</div>
+    <button class="btn-sm" onclick="saveDay()">💾 Save Today's Data</button>
+    <button class="btn-sm" onclick="exportData()">📤 Export JSON</button>
+    <button class="btn-sm danger" onclick="confirmReset()">🗑 Reset All Data</button>
+  </div>
+</aside>
+
+<!-- ═══════════════════ MAIN ═══════════════════ -->
+<main class="main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="menu-btn" onclick="openSidebar()">☰</button>
+      <div>
+        <div class="topbar-title"><span id="page-title">Executive Summary</span></div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="date-badge" id="today-date"></div>
+      <div class="target-badge" id="target-badge-top">Target: ₱7,000</div>
+    </div>
+  </div>
+
+  <!-- ═══ PAGE: SUMMARY ═══ -->
+  <div class="page active" id="page-summary">
+    <div class="sec-header">
+      <h2>Executive Summary</h2>
+      <p>Today's performance snapshot · <span id="summary-date"></span></p>
+    </div>
+
+    <!-- KPI ROW -->
+    <div class="kpi-grid" id="kpi-grid">
+      <div class="kpi-card" style="--accent:var(--gold)">
+        <div class="kpi-label">Total Revenue</div>
+        <div class="kpi-value" id="kpi-revenue">₱0</div>
+        <div class="kpi-sub" id="kpi-revenue-sub">0 items sold</div>
+      </div>
+      <div class="kpi-card" style="--accent:var(--blu)">
+        <div class="kpi-label">Total Orders</div>
+        <div class="kpi-value" id="kpi-orders">0</div>
+        <div class="kpi-sub" id="kpi-orders-sub">cups today</div>
+      </div>
+      <div class="kpi-card" style="--accent:var(--pur)">
+        <div class="kpi-label">Avg Order Value</div>
+        <div class="kpi-value" id="kpi-aov">₱0</div>
+        <div class="kpi-sub" id="kpi-aov-sub">per transaction</div>
+      </div>
+      <div class="kpi-card" id="kpi-profit-card" style="--accent:var(--grn)">
+        <div class="kpi-label">Net Profit</div>
+        <div class="kpi-value" id="kpi-profit">₱0</div>
+        <div class="kpi-sub" id="kpi-profit-sub">after expenses</div>
+      </div>
+      <div class="kpi-card" id="kpi-margin-card">
+        <div class="kpi-label">Profit Margin</div>
+        <div class="kpi-value" id="kpi-margin">0%</div>
+        <div class="kpi-sub" id="kpi-margin-sub">gross margin</div>
+      </div>
+      <div class="kpi-card" id="kpi-target-card">
+        <div class="kpi-label">Target Progress</div>
+        <div class="kpi-value" id="kpi-target-pct">0%</div>
+        <div class="kpi-sub" id="kpi-target-sub">of daily target</div>
+      </div>
+    </div>
+
+    <!-- TARGET BAR -->
+    <div class="target-section mb">
+      <div class="target-header">
+        <div>
+          <div class="card-title">Daily Revenue Target</div>
+          <div class="target-detail">Target: <strong id="target-amt-display">₱7,000</strong> · Remaining: <span id="target-remaining">₱7,000</span></div>
+        </div>
+        <div class="target-pct" id="target-big-pct" style="color:var(--orn)">0%</div>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-bar low" id="target-bar" style="width:0%"></div>
+      </div>
+    </div>
+
+    <div class="g2 mb">
+      <!-- PRODUCT CHART -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Product Performance</div>
+            <div class="card-sub">Quantity sold & profit by product</div>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="chartProducts"></canvas>
+        </div>
+      </div>
+      <!-- EXPENSE BREAKDOWN -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Today's Cost Breakdown</div>
+            <div class="card-sub">Revenue vs cost vs profit</div>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="chartCosts"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORY CHART -->
+    <div class="chart-container mb">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Sales & Profit Trend</div>
+          <div class="card-sub">Last 14 operating days</div>
+        </div>
+        <div style="display:flex;gap:10px;font-size:10px">
+          <span style="color:var(--gold)">— Revenue</span>
+          <span style="color:var(--grn)">— Net Profit</span>
+        </div>
+      </div>
+      <div class="chart-wrap" style="height:200px">
+        <canvas id="chartHistory"></canvas>
+      </div>
+    </div>
+
+    <!-- MONTHLY OVERVIEW -->
+    <div class="chart-container">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Monthly Revenue Overview</div>
+          <div class="card-sub">Nov 2024 – Mar 2026 · All months</div>
+        </div>
+      </div>
+      <div class="chart-wrap" style="height:180px">
+        <canvas id="chartMonthly"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PAGE: INPUT ═══ -->
+  <div class="page" id="page-input">
+    <div class="sec-header">
+      <h2>Daily Input</h2>
+      <p>Enter today's sales and expenses</p>
+    </div>
+
+    <div class="form-section">
+      <h3>📅 Date & Settings</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="input-date"/>
+        </div>
+        <div class="form-group">
+          <label>Daily Target (₱)</label>
+          <input type="number" id="input-target" value="7000" min="0"/>
+        </div>
+        <div class="form-group">
+          <label>Other Expenses (₱)</label>
+          <input type="number" id="input-expenses" placeholder="0.00" min="0"/>
+        </div>
+        <div class="form-group">
+          <label>Notes</label>
+          <input type="text" id="input-notes" placeholder="Optional note for today"/>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>☕ Products Sold</h3>
+
+      <!-- QUICK-ADD PRESETS -->
+      <div style="margin-bottom:10px;font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Quick Add Presets</div>
+      <div class="add-prod-bar" id="preset-buttons"></div>
+
+      <!-- PRODUCT ROWS -->
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 28px;gap:6px;padding:0 10px 6px;font-size:9px;font-weight:700;color:var(--txt3);letter-spacing:.06em;text-transform:uppercase">
+        <span>Product</span><span style="text-align:center">Price (₱)</span><span style="text-align:center">Cost/Cup (₱)</span><span style="text-align:center">Qty</span><span></span>
+      </div>
+      <div class="product-rows" id="product-rows"></div>
+
+      <button class="btn btn-ghost" onclick="addCustomRow()" style="width:100%;margin-top:4px">+ Add Custom Product</button>
+    </div>
+
+    <!-- LIVE TOTALS -->
+    <div class="form-section" style="background:var(--bg3)">
+      <h3>📊 Live Totals</h3>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px" id="live-totals">
+        <div style="text-align:center"><div style="font-size:18px;font-weight:800;font-family:var(--mono);color:var(--gold)" id="lt-revenue">₱0</div><div style="font-size:9px;color:var(--txt3);margin-top:3px">Revenue</div></div>
+        <div style="text-align:center"><div style="font-size:18px;font-weight:800;font-family:var(--mono);color:var(--red)" id="lt-cogs">₱0</div><div style="font-size:9px;color:var(--txt3);margin-top:3px">Total COGS</div></div>
+        <div style="text-align:center"><div style="font-size:18px;font-weight:800;font-family:var(--mono);color:var(--grn)" id="lt-profit">₱0</div><div style="font-size:9px;color:var(--txt3);margin-top:3px">Gross Profit</div></div>
+        <div style="text-align:center"><div style="font-size:18px;font-weight:800;font-family:var(--mono)" id="lt-margin">0%</div><div style="font-size:9px;color:var(--txt3);margin-top:3px">Margin</div></div>
+        <div style="text-align:center"><div style="font-size:18px;font-weight:800;font-family:var(--mono);color:var(--blu)" id="lt-orders">0</div><div style="font-size:9px;color:var(--txt3);margin-top:3px">Orders</div></div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" onclick="saveDay()" style="flex:1;padding:12px">💾 Save Today's Data</button>
+      <button class="btn btn-secondary" onclick="clearInputs()">Clear</button>
+    </div>
+  </div>
+
+  <!-- ═══ PAGE: PRODUCTS ═══ -->
+  <div class="page" id="page-products">
+    <div class="sec-header">
+      <h2>Product Performance</h2>
+      <p>Profitability analysis for today's sales</p>
+    </div>
+
+    <div class="card mb">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Product Profitability Table</div>
+          <div class="card-sub">⭐ = top seller · 💰 = highest profit · sorted by revenue</div>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table id="product-table">
+          <thead>
+            <tr>
+              <th style="text-align:left">Product</th>
+              <th>Price</th>
+              <th>Cost/Cup</th>
+              <th>Qty</th>
+              <th>Revenue</th>
+              <th>Total Cost</th>
+              <th>Profit/Cup</th>
+              <th>Total Profit</th>
+              <th>Margin %</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="product-tbody">
+            <tr><td colspan="10" style="text-align:center;padding:30px;color:var(--txt3)">No products entered yet. Go to Daily Input to add sales.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="g2">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Quantity vs Profit by Product</div></div>
+        <div class="chart-wrap" style="height:240px"><canvas id="chartProdDetail"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Margin % by Product</div></div>
+        <div class="chart-wrap" style="height:240px"><canvas id="chartMargin"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PAGE: INSIGHTS ═══ -->
+  <div class="page" id="page-insights">
+    <div class="sec-header">
+      <h2>Smart Insights</h2>
+      <p>AI-powered analysis of your daily performance</p>
+    </div>
+    <div class="g2 mb">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Today's Insights</div></div>
+        <div class="insight-list" id="insights-today"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Trend Insights</div></div>
+        <div class="insight-list" id="insights-trend"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Product Recommendations</div></div>
+      <div class="insight-list" id="insights-products"></div>
+    </div>
+  </div>
+
+  <!-- ═══ PAGE: HISTORY ═══ -->
+  <div class="page" id="page-history">
+    <div class="sec-header">
+      <h2>History & Trends</h2>
+      <p>Daily performance log with weekly summaries</p>
+    </div>
+
+    <!-- WEEKLY SUMMARY -->
+    <div class="weekly-summary mb">
+      <h4>📅 Last 7 Days Summary</h4>
+      <div class="weekly-grid" id="weekly-grid">
+        <div class="wk-stat"><div class="wk-val" id="wk-avg-sales">₱0</div><div class="wk-label">Avg Daily Sales</div></div>
+        <div class="wk-stat"><div class="wk-val" id="wk-avg-profit">₱0</div><div class="wk-label">Avg Daily Profit</div></div>
+        <div class="wk-stat"><div class="wk-val" id="wk-avg-aov">₱0</div><div class="wk-label">Avg AOV</div></div>
+        <div class="wk-stat"><div class="wk-val" id="wk-best">₱0</div><div class="wk-label">Best Day</div></div>
+        <div class="wk-stat"><div class="wk-val" id="wk-worst">₱0</div><div class="wk-label">Worst Day</div></div>
+      </div>
+    </div>
+
+    <!-- HISTORY ITEMS -->
+    <div class="card mb">
+      <div class="card-header">
+        <div class="card-title">Daily Log</div>
+        <button class="btn btn-ghost" onclick="clearHistory()" style="font-size:11px;padding:5px 10px">Clear History</button>
+      </div>
+      <div class="history-list" id="history-list"></div>
+    </div>
+
+    <!-- MONTHLY HISTORY -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Monthly P&L History</div>
+          <div class="card-sub">Nov 2024 – Mar 2026</div>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table id="monthly-table">
+          <thead>
+            <tr>
+              <th style="text-align:left">Month</th>
+              <th>Revenue</th>
+              <th>Expenses</th>
+              <th>Net Profit</th>
+              <th>Net Margin</th>
+              <th>vs Target</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="monthly-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PAGE: SETTINGS ═══ -->
+  <div class="page" id="page-settings">
+    <div class="sec-header">
+      <h2>Settings</h2>
+      <p>Configure targets, products, and data management</p>
+    </div>
+
+    <div class="g2">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Business Settings</div></div>
+        <div class="setting-row">
+          <div><div class="setting-label">Business Name</div></div>
+          <input type="text" id="set-name" value="8 Ounce Café" style="width:160px"/>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Daily Revenue Target (₱)</div><div class="setting-note">Used for progress tracking</div></div>
+          <input type="number" id="set-target" value="7000" style="width:100px"/>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Monthly Revenue Target (₱)</div></div>
+          <input type="number" id="set-mo-target" value="180132" style="width:120px"/>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Low AOV Warning Threshold (₱)</div><div class="setting-note">Alert when AOV falls below this</div></div>
+          <input type="number" id="set-aov" value="120" style="width:100px"/>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Low Margin Warning (%)</div><div class="setting-note">Alert when margin falls below this</div></div>
+          <input type="number" id="set-margin" value="50" style="width:100px"/>
+        </div>
+        <div style="margin-top:14px">
+          <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">Data Management</div></div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <button class="btn btn-secondary" onclick="exportData()">📤 Export JSON Backup</button>
+          <button class="btn btn-secondary" onclick="document.getElementById('import-file').click()">📥 Import JSON Backup</button>
+          <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(this)"/>
+          <div style="height:1px;background:var(--brd);margin:4px 0"></div>
+          <button class="btn btn-danger" onclick="confirmReset()">🗑 Reset All Data to Defaults</button>
+        </div>
+        <div style="margin-top:14px;padding:12px;background:var(--bg3);border-radius:var(--r);font-size:11px;color:var(--txt3);line-height:1.6">
+          <div><strong style="color:var(--txt2)">Storage:</strong> <span id="storage-size">Calculating…</span></div>
+          <div><strong style="color:var(--txt2)">History entries:</strong> <span id="history-count">0</span></div>
+          <div><strong style="color:var(--txt2)">Last saved:</strong> <span id="last-saved">Never</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-header">
+        <div class="card-title">Product Preset Manager</div>
+        <div class="card-sub">Effective March 23, 2026 pricing</div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="text-align:left">Product</th>
+              <th style="text-align:left">Category</th>
+              <th>Size</th>
+              <th>Selling Price</th>
+              <th>Cost/Cup</th>
+              <th>Margin</th>
+            </tr>
+          </thead>
+          <tbody id="preset-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════
+//  PRODUCT PRESETS — Updated from Excel (effective March 23, 2026)
+// ══════════════════════════════════════════════════════════════════════
+const PRESETS = [
+  // HOT COFFEE
+  {name:"Cafe Americano",   cat:"Hot Coffee",   size:"8oz",  price:79,  cost:25.00},
+  {name:"Cafe Americano",   cat:"Hot Coffee",   size:"12oz", price:99,  cost:35.35},
+  {name:"Cafe Latte",       cat:"Hot Coffee",   size:"8oz",  price:99,  cost:39.38},
+  {name:"Cafe Latte",       cat:"Hot Coffee",   size:"12oz", price:119, cost:49.73},
+  {name:"Spanish Latte",    cat:"Hot Coffee",   size:"8oz",  price:99,  cost:40.52},
+  {name:"Spanish Latte",    cat:"Hot Coffee",   size:"12oz", price:119, cost:51.45},
+  {name:"Caramel Macchiato",cat:"Hot Coffee",   size:"8oz",  price:109, cost:47.38},
+  {name:"Caramel Macchiato",cat:"Hot Coffee",   size:"12oz", price:129, cost:54.23},
+  {name:"Hazelnut Latte",   cat:"Hot Coffee",   size:"8oz",  price:109, cost:47.38},
+  {name:"Hazelnut Latte",   cat:"Hot Coffee",   size:"12oz", price:129, cost:61.73},
+  {name:"Hot Choco",        cat:"Hot Coffee",   size:"8oz",  price:99,  cost:31.66},
+  {name:"Hot Choco",        cat:"Hot Coffee",   size:"12oz", price:119, cost:33.41},
+  {name:"Hot Matcha",       cat:"Hot Coffee",   size:"8oz",  price:109, cost:49.15},
+  {name:"Hot Matcha",       cat:"Hot Coffee",   size:"12oz", price:129, cost:65.15},
+  // ICED COFFEE
+  {name:"Iced Americano",          cat:"Iced Coffee", size:"12oz", price:69,  cost:30.75},
+  {name:"Iced Americano",          cat:"Iced Coffee", size:"16oz", price:119, cost:41.20},
+  {name:"Iced Americano",          cat:"Iced Coffee", size:"20oz", price:149, cost:41.55},
+  {name:"Iced Latte",              cat:"Iced Coffee", size:"16oz", price:139, cost:55.81},
+  {name:"Iced Latte",              cat:"Iced Coffee", size:"20oz", price:169, cost:61.02},
+  {name:"Iced Mocha Latte",        cat:"Iced Coffee", size:"12oz", price:99,  cost:44.78},
+  {name:"Iced Mocha Latte",        cat:"Iced Coffee", size:"16oz", price:139, cost:62.27},
+  {name:"Iced Mocha Latte",        cat:"Iced Coffee", size:"20oz", price:169, cost:70.75},
+  {name:"Iced Hazelnut Latte",     cat:"Iced Coffee", size:"12oz", price:99,  cost:51.12},
+  {name:"Iced Hazelnut Latte",     cat:"Iced Coffee", size:"16oz", price:139, cost:59.17},
+  {name:"Iced Hazelnut Latte",     cat:"Iced Coffee", size:"20oz", price:169, cost:67.92},
+  {name:"Iced Choco Hazelnut",     cat:"Iced Coffee", size:"12oz", price:109, cost:44.77},
+  {name:"Iced Choco Hazelnut",     cat:"Iced Coffee", size:"16oz", price:139, cost:63.13},
+  {name:"Iced Choco Hazelnut",     cat:"Iced Coffee", size:"20oz", price:169, cost:73.18},
+  {name:"Iced Spanish Latte",      cat:"Iced Coffee", size:"12oz", price:89,  cost:43.78},
+  {name:"Iced Spanish Latte",      cat:"Iced Coffee", size:"16oz", price:139, cost:60.17},
+  {name:"Iced Spanish Latte",      cat:"Iced Coffee", size:"20oz", price:169, cost:66.47},
+  {name:"Iced Salted Caramel",     cat:"Iced Coffee", size:"12oz", price:109, cost:54.26},
+  {name:"Iced Salted Caramel",     cat:"Iced Coffee", size:"16oz", price:149, cost:78.43},
+  {name:"Iced Salted Caramel",     cat:"Iced Coffee", size:"20oz", price:179, cost:101.43},
+  {name:"Iced Caramel Macchiato",  cat:"Iced Coffee", size:"12oz", price:109, cost:54.26},
+  {name:"Iced Caramel Macchiato",  cat:"Iced Coffee", size:"16oz", price:149, cost:73.79},
+  {name:"Iced Caramel Macchiato",  cat:"Iced Coffee", size:"20oz", price:179, cost:84.82},
+  {name:"Iced Ube Latte",          cat:"Iced Coffee", size:"12oz", price:99,  cost:45.15},
+  {name:"Iced Ube Latte",          cat:"Iced Coffee", size:"16oz", price:149, cost:63.48},
+  {name:"Iced Ube Latte",          cat:"Iced Coffee", size:"20oz", price:179, cost:71.71},
+  {name:"Dirty Matcha",            cat:"Iced Coffee", size:"12oz", price:99,  cost:41.08},
+  {name:"Dirty Matcha",            cat:"Iced Coffee", size:"16oz", price:139, cost:57.08},
+  {name:"Dirty Matcha",            cat:"Iced Coffee", size:"20oz", price:169, cost:73.32},
+  {name:"Iced Biscoff Latte",      cat:"Iced Coffee", size:"16oz", price:149, cost:71.14},
+  {name:"Iced Biscoff Latte",      cat:"Iced Coffee", size:"20oz", price:179, cost:80.12},
+  // NON-COFFEE
+  {name:"Chocolate Milk",     cat:"Non-Coffee", size:"12oz", price:79,  cost:34.43},
+  {name:"Chocolate Milk",     cat:"Non-Coffee", size:"16oz", price:119, cost:41.56},
+  {name:"Chocolate Milk",     cat:"Non-Coffee", size:"20oz", price:149, cost:53.34},
+  {name:"White Choco Milk",   cat:"Non-Coffee", size:"12oz", price:79,  cost:37.88},
+  {name:"White Choco Milk",   cat:"Non-Coffee", size:"16oz", price:119, cost:46.17},
+  {name:"White Choco Milk",   cat:"Non-Coffee", size:"20oz", price:149, cost:63.72},
+  {name:"Choco Hazelnut",     cat:"Non-Coffee", size:"12oz", price:79,  cost:45.28},
+  {name:"Choco Hazelnut",     cat:"Non-Coffee", size:"16oz", price:129, cost:51.27},
+  {name:"Choco Hazelnut",     cat:"Non-Coffee", size:"20oz", price:159, cost:58.60},
+  {name:"Strawberry Milk",    cat:"Non-Coffee", size:"12oz", price:79,  cost:44.08},
+  {name:"Strawberry Milk",    cat:"Non-Coffee", size:"16oz", price:119, cost:51.08},
+  {name:"Strawberry Milk",    cat:"Non-Coffee", size:"20oz", price:149, cost:68.22},
+  {name:"Blueberry Milk",     cat:"Non-Coffee", size:"12oz", price:79,  cost:32.08},
+  {name:"Blueberry Milk",     cat:"Non-Coffee", size:"16oz", price:119, cost:39.08},
+  {name:"Blueberry Milk",     cat:"Non-Coffee", size:"20oz", price:149, cost:44.22},
+  {name:"ChocoBerry Milk",    cat:"Non-Coffee", size:"12oz", price:89,  cost:47.32},
+  {name:"ChocoBerry Milk",    cat:"Non-Coffee", size:"16oz", price:139, cost:56.62},
+  {name:"ChocoBerry Milk",    cat:"Non-Coffee", size:"20oz", price:169, cost:77.10},
+  {name:"Matcha",             cat:"Non-Coffee", size:"12oz", price:89,  cost:43.48},
+  {name:"Matcha",             cat:"Non-Coffee", size:"16oz", price:139, cost:61.88},
+  {name:"Matcha",             cat:"Non-Coffee", size:"20oz", price:169, cost:80.52},
+  {name:"Ube Matcha",         cat:"Non-Coffee", size:"12oz", price:89,  cost:48.12},
+  {name:"Ube Matcha",         cat:"Non-Coffee", size:"16oz", price:139, cost:66.51},
+  {name:"Ube Matcha",         cat:"Non-Coffee", size:"20oz", price:169, cost:87.47},
+  {name:"Strawberry Matcha",  cat:"Non-Coffee", size:"12oz", price:89,  cost:45.58},
+  {name:"Strawberry Matcha",  cat:"Non-Coffee", size:"16oz", price:139, cost:66.08},
+  {name:"Strawberry Matcha",  cat:"Non-Coffee", size:"20oz", price:169, cost:84.72},
+  // SODAS
+  {name:"Blueberry Soda",   cat:"Soda", size:"12oz", price:79,  cost:38.90},
+  {name:"Blueberry Soda",   cat:"Soda", size:"16oz", price:99,  cost:59.50},
+  {name:"Blueberry Soda",   cat:"Soda", size:"20oz", price:119, cost:74.35},
+  {name:"Blue Ocean Soda",  cat:"Soda", size:"12oz", price:79,  cost:36.90},
+  {name:"Blue Ocean Soda",  cat:"Soda", size:"16oz", price:99,  cost:51.50},
+  {name:"Strawberry Soda",  cat:"Soda", size:"12oz", price:79,  cost:38.90},
+  {name:"Strawberry Soda",  cat:"Soda", size:"16oz", price:99,  cost:59.50},
+  {name:"Green Apple Soda", cat:"Soda", size:"12oz", price:79,  cost:36.90},
+  {name:"Green Apple Soda", cat:"Soda", size:"16oz", price:99,  cost:51.50},
+];
+
+// Popular presets for quick-add buttons
+const QUICK_PRESETS = [
+  "Iced Americano 16oz", "Iced Spanish Latte 16oz", "Dirty Matcha 16oz",
+  "Cafe Latte 12oz", "Cafe Americano 8oz", "Iced Caramel Macchiato 16oz",
+  "Iced Biscoff Latte 16oz", "Ube Matcha 16oz", "Blueberry Milk 16oz",
+  "Iced Mocha Latte 16oz", "Strawberry Matcha 16oz", "Iced Hazelnut Latte 16oz"
+];
+
+// Monthly history data (from Excel - Nov 2024 to Mar 2026)
+const MONTHLY_DATA = [
+  {m:"Nov '24", rev:95569.5,  exp:39784,    net:55785.5,  tgt:180132},
+  {m:"Dec '24", rev:49790,    exp:60888,    net:-11098,   tgt:180132},
+  {m:"Jan '25", rev:9944,     exp:64245,    net:-54301,   tgt:180132},
+  {m:"Feb '25", rev:34429,    exp:19442,    net:14987,    tgt:180132},
+  {m:"Mar '25", rev:66505,    exp:55218,    net:11287,    tgt:180132},
+  {m:"Apr '25", rev:75554,    exp:74031,    net:1523,     tgt:180132},
+  {m:"May '25", rev:154727,   exp:123744,   net:30983,    tgt:180132},
+  {m:"Jun '25", rev:93437,    exp:45560,    net:47877,    tgt:180132},
+  {m:"Jul '25", rev:149563,   exp:78360,    net:71203,    tgt:180132},
+  {m:"Aug '25", rev:117093,   exp:68360,    net:48733,    tgt:180132},
+  {m:"Sep '25", rev:103735,   exp:90335,    net:13400,    tgt:180132},
+  {m:"Oct '25", rev:207103,   exp:134647.5, net:72455.5,  tgt:180132},
+  {m:"Nov '25", rev:150919,   exp:77721,    net:73198,    tgt:180132},
+  {m:"Dec '25", rev:145194,   exp:89236,    net:55958,    tgt:180132},
+  {m:"Jan '26", rev:98778.25, exp:62340,    net:36438.25, tgt:180132},
+  {m:"Feb '26", rev:161260,   exp:106680,   net:54580,    tgt:180132},
+  {m:"Mar '26", rev:168466.75,exp:111114,   net:57352.75, tgt:180132},
+];
+
+// Default history seed from March 2026 daily data
+const DEFAULT_HISTORY = [
+  {date:"2026-03-01",revenue:12103,  cogs:5446,  profit:6657,  expenses:7620, net:-963,   orders:101, aov:120},
+  {date:"2026-03-02",revenue:7436,   cogs:3346,  profit:4090,  expenses:3665, net:425,    orders:62,  aov:120},
+  {date:"2026-03-03",revenue:12260.75,cogs:5517, profit:6743,  expenses:6828, net:-85,    orders:102, aov:120},
+  {date:"2026-03-04",revenue:6050,   cogs:2722,  profit:3328,  expenses:5860, net:-2532,  orders:50,  aov:121},
+  {date:"2026-03-05",revenue:6213.75,cogs:2796,  profit:3418,  expenses:6161, net:-2743,  orders:52,  aov:120},
+  {date:"2026-03-06",revenue:8629.5, cogs:3883,  profit:4747,  expenses:7190, net:-2443,  orders:72,  aov:120},
+  {date:"2026-03-07",revenue:7636.25,cogs:3436,  profit:4200,  expenses:1160, net:3040,   orders:64,  aov:119},
+  {date:"2026-03-08",revenue:5752,   cogs:2588,  profit:3164,  expenses:2400, net:764,    orders:48,  aov:120},
+  {date:"2026-03-09",revenue:8226.5, cogs:3702,  profit:4525,  expenses:7904, net:-3379,  orders:69,  aov:119},
+  {date:"2026-03-10",revenue:5231.5, cogs:2354,  profit:2877,  expenses:1200, net:1677,   orders:44,  aov:119},
+  {date:"2026-03-13",revenue:9097,   cogs:4094,  profit:5003,  expenses:12550,net:-7547,  orders:76,  aov:120},
+  {date:"2026-03-14",revenue:7103,   cogs:3196,  profit:3907,  expenses:5065, net:-1158,  orders:59,  aov:120},
+  {date:"2026-03-16",revenue:12073,  cogs:5433,  profit:6640,  expenses:2916, net:3724,   orders:101, aov:120},
+  {date:"2026-03-18",revenue:6898,   cogs:3104,  profit:3794,  expenses:2100, net:1694,   orders:57,  aov:121},
+  {date:"2026-03-19",revenue:13714.5,cogs:6172,  profit:7543,  expenses:1800, net:5743,   orders:114, aov:120},
+  {date:"2026-03-20",revenue:8672,   cogs:3902,  profit:4770,  expenses:6830, net:-2060,  orders:72,  aov:120},
+  {date:"2026-03-21",revenue:7859,   cogs:3537,  profit:4322,  expenses:5563, net:-1241,  orders:65,  aov:121},
+  {date:"2026-03-22",revenue:5013,   cogs:2256,  profit:2757,  expenses:3032, net:-275,   orders:42,  aov:119},
+  {date:"2026-03-25",revenue:6647,   cogs:2991,  profit:3656,  expenses:1100, net:2556,   orders:55,  aov:121},
+  {date:"2026-03-26",revenue:10699,  cogs:4815,  profit:5884,  expenses:3100, net:2784,   orders:89,  aov:120},
+];
+
+// ══════════════════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════════════════
+let STATE = {
+  history: [],
+  currentProducts: [],
+  settings: { target:7000, moTarget:180132, name:"8 Ounce Café", lowAov:120, lowMargin:50 },
+  lastSaved: null,
+};
+
+// Chart instances
+let charts = {};
+
+// ══════════════════════════════════════════════════════════════════════
+//  STORAGE
+// ══════════════════════════════════════════════════════════════════════
+function saveState() {
+  try {
+    localStorage.setItem("8oz_bi_state", JSON.stringify(STATE));
+    STATE.lastSaved = new Date().toLocaleString("en-PH");
+    localStorage.setItem("8oz_bi_saved", STATE.lastSaved);
+    updateSaveStatus();
+  } catch(e) { console.error("Save failed:", e); }
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem("8oz_bi_state");
+    if (raw) {
+      const saved = JSON.parse(raw);
+      STATE = { ...STATE, ...saved };
+      // ensure arrays exist
+      if (!STATE.history) STATE.history = [];
+      if (!STATE.currentProducts) STATE.currentProducts = [];
+      if (!STATE.settings) STATE.settings = { target:7000, moTarget:180132, name:"8 Ounce Café", lowAov:120, lowMargin:50 };
+      return true;
+    }
+  } catch(e) { console.error("Load failed:", e); }
+  // No saved state — seed with default history
+  STATE.history = [...DEFAULT_HISTORY];
+  saveState();
+  return false;
+}
+
+function updateSaveStatus() {
+  const ts = localStorage.getItem("8oz_bi_saved") || "Never";
+  const el = document.getElementById("save-status");
+  if (el) el.innerHTML = `<span class="dot"></span>Saved · ${ts}`;
+  const lsel = document.getElementById("last-saved");
+  if (lsel) lsel.textContent = ts;
+  // Storage size
+  let total = 0;
+  for (let k in localStorage) {
+    if (k.startsWith("8oz")) try { total += localStorage[k].length; } catch(e){}
+  }
+  const ss = document.getElementById("storage-size");
+  if (ss) ss.textContent = (total/1024).toFixed(1) + " KB";
+  const hc = document.getElementById("history-count");
+  if (hc) hc.textContent = STATE.history.length;
+}
+
+function confirmReset() {
+  if (confirm("This will clear ALL data including history. Are you sure?")) {
+    localStorage.removeItem("8oz_bi_state");
+    localStorage.removeItem("8oz_bi_saved");
+    STATE = { history:[...DEFAULT_HISTORY], currentProducts:[], settings:{target:7000,moTarget:180132,name:"8 Ounce Café",lowAov:120,lowMargin:50}, lastSaved:null };
+    saveState();
+    initApp();
+    alert("Data reset to defaults.");
+  }
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify({state:STATE, monthlyData:MONTHLY_DATA, exportedAt:new Date().toISOString()}, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `8ounce_bi_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+}
+
+function importData(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data.state) {
+        STATE = data.state;
+        saveState();
+        initApp();
+        alert("Data imported successfully!");
+      }
+    } catch(err) { alert("Invalid backup file."); }
+  };
+  reader.readAsText(file);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  CALCULATE
+// ══════════════════════════════════════════════════════════════════════
+function calculate(products, expenses=0) {
+  let revenue=0, cogs=0, orders=0;
+  products.forEach(p => {
+    const qty = parseFloat(p.qty)||0;
+    const price = parseFloat(p.price)||0;
+    const cost = parseFloat(p.cost)||0;
+    revenue += price * qty;
+    cogs    += cost  * qty;
+    orders  += qty;
+  });
+  const grossProfit = revenue - cogs;
+  const netProfit   = grossProfit - (parseFloat(expenses)||0);
+  const margin      = revenue > 0 ? (grossProfit/revenue)*100 : 0;
+  const netMargin   = revenue > 0 ? (netProfit/revenue)*100 : 0;
+  const aov         = orders > 0 ? revenue/orders : 0;
+  return { revenue, cogs, grossProfit, netProfit, margin, netMargin, aov, orders };
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  PRODUCT ROWS (INPUT PAGE)
+// ══════════════════════════════════════════════════════════════════════
+let rowId = 0;
+
+function renderPresetButtons() {
+  const container = document.getElementById("preset-buttons");
+  if (!container) return;
+  container.innerHTML = "";
+  QUICK_PRESETS.forEach(label => {
+    const [name, size] = label.split(" ").slice(0,-1).join(" ") !== label
+      ? [label.split(" ").slice(0,-1).join(" "), label.split(" ").slice(-1)[0]]
+      : [label, ""];
+    const preset = PRESETS.find(p => p.name === name && (!size || p.size === size));
+    if (!preset) return;
+    const btn = document.createElement("button");
+    btn.className = "preset-btn";
+    btn.textContent = `${name} ${size}`;
+    btn.onclick = () => addPresetRow(preset);
+    container.appendChild(btn);
+  });
+}
+
+function addPresetRow(preset) {
+  const id = ++rowId;
+  const existing = STATE.currentProducts.find(p => p.name===preset.name && p.size===preset.size);
+  if (existing) {
+    existing.qty = (parseFloat(existing.qty)||0) + 1;
+    renderProductRows();
+    updateLiveTotals();
+    return;
+  }
+  STATE.currentProducts.push({id, name:`${preset.name} (${preset.size})`, price:preset.price, cost:preset.cost, qty:1, cat:preset.cat});
+  renderProductRows();
+  updateLiveTotals();
+}
+
+function addCustomRow() {
+  const id = ++rowId;
+  STATE.currentProducts.push({id, name:"", price:0, cost:0, qty:1, cat:"Custom"});
+  renderProductRows();
+}
+
+function removeRow(id) {
+  STATE.currentProducts = STATE.currentProducts.filter(p => p.id !== id);
+  renderProductRows();
+  updateLiveTotals();
+}
+
+function renderProductRows() {
+  const container = document.getElementById("product-rows");
+  if (!container) return;
+  if (STATE.currentProducts.length === 0) {
+    container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--txt3);font-size:12px">Use quick-add presets above or click "+ Add Custom Product"</div>`;
+    return;
+  }
+  container.innerHTML = STATE.currentProducts.map(p => `
+    <div class="product-row" id="row-${p.id}">
+      <div>
+        <input type="text" value="${p.name}" placeholder="Product name"
+          onchange="updateRow(${p.id},'name',this.value)" style="font-size:12px;font-weight:600"/>
+        <div class="prod-meta">${p.cat||''}</div>
+      </div>
+      <input type="number" value="${p.price}" min="0" step="0.5"
+        onchange="updateRow(${p.id},'price',this.value)"
+        oninput="updateRow(${p.id},'price',this.value)" placeholder="Price"/>
+      <input type="number" value="${p.cost}" min="0" step="0.01"
+        onchange="updateRow(${p.id},'cost',this.value)"
+        oninput="updateRow(${p.id},'cost',this.value)" placeholder="Cost"/>
+      <input type="number" value="${p.qty}" min="0" step="1"
+        onchange="updateRow(${p.id},'qty',this.value)"
+        oninput="updateRow(${p.id},'qty',this.value)" placeholder="Qty"/>
+      <button class="del-btn" onclick="removeRow(${p.id})">✕</button>
+    </div>`).join("");
+  updateLiveTotals();
+}
+
+function updateRow(id, field, value) {
+  const row = STATE.currentProducts.find(p => p.id === id);
+  if (row) {
+    row[field] = field === "name" ? value : parseFloat(value)||0;
+    updateLiveTotals();
+  }
+}
+
+function updateLiveTotals() {
+  const expenses = parseFloat(document.getElementById("input-expenses")?.value)||0;
+  const calc = calculate(STATE.currentProducts, expenses);
+  const m = calc.margin;
+  const mColor = m >= 50 ? "var(--grn)" : m >= 35 ? "var(--orn)" : "var(--red)";
+
+  document.getElementById("lt-revenue").textContent = fmt(calc.revenue);
+  document.getElementById("lt-cogs").textContent    = fmt(calc.cogs);
+  document.getElementById("lt-profit").textContent  = fmt(calc.grossProfit);
+  document.getElementById("lt-margin").textContent  = m.toFixed(1)+"%";
+  document.getElementById("lt-margin").style.color  = mColor;
+  document.getElementById("lt-orders").textContent  = calc.orders;
+}
+
+function clearInputs() {
+  STATE.currentProducts = [];
+  document.getElementById("input-expenses").value = "";
+  document.getElementById("input-notes").value = "";
+  renderProductRows();
+  updateLiveTotals();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  SAVE DAY
+// ══════════════════════════════════════════════════════════════════════
+function saveDay() {
+  const date     = document.getElementById("input-date")?.value;
+  const expenses = parseFloat(document.getElementById("input-expenses")?.value)||0;
+  const notes    = document.getElementById("input-notes")?.value||"";
+  const target   = parseFloat(document.getElementById("input-target")?.value)||STATE.settings.target;
+
+  if (!date) { alert("Please select a date."); return; }
+  if (STATE.currentProducts.length === 0 || STATE.currentProducts.every(p=>!p.qty||p.qty<=0)) {
+    if (!confirm("No products entered. Save anyway?")) return;
+  }
+
+  const calc = calculate(STATE.currentProducts, expenses);
+  const entry = {
+    date, revenue:calc.revenue, cogs:calc.cogs,
+    profit:calc.grossProfit, expenses,
+    net:calc.netProfit, orders:calc.orders,
+    aov: calc.aov, margin:calc.margin,
+    target, notes,
+    products: STATE.currentProducts.map(p => ({...p}))
+  };
+
+  // Overwrite if same date exists
+  const idx = STATE.history.findIndex(h => h.date === date);
+  if (idx >= 0) {
+    if (!confirm(`Entry for ${date} already exists. Overwrite?`)) return;
+    STATE.history[idx] = entry;
+  } else {
+    STATE.history.push(entry);
+  }
+
+  // Sort by date
+  STATE.history.sort((a,b) => a.date > b.date ? 1 : -1);
+  STATE.settings.target = target;
+  saveState();
+  renderAll();
+  showPage("summary");
+  alert(`✅ Data saved for ${date}`);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  RENDER ALL
+// ══════════════════════════════════════════════════════════════════════
+function renderAll() {
+  renderSummary();
+  renderProductTable();
+  renderInsights();
+  renderHistory();
+  renderMonthlyTable();
+  renderPresetTable();
+  updateSaveStatus();
+  updateTopbar();
+}
+
+function updateTopbar() {
+  const today = document.getElementById("today-date");
+  if (today) today.textContent = new Date().toLocaleDateString("en-PH",{weekday:"short",month:"short",day:"numeric"});
+  const tb = document.getElementById("target-badge-top");
+  if (tb) tb.textContent = `Target: ${fmt(STATE.settings.target)}`;
+  const sd = document.getElementById("summary-date");
+  if (sd) {
+    const last = STATE.history.length > 0 ? STATE.history[STATE.history.length-1].date : "No data";
+    sd.textContent = `Latest: ${last}`;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  SUMMARY
+// ══════════════════════════════════════════════════════════════════════
+function renderSummary() {
+  const last = STATE.history.length > 0 ? STATE.history[STATE.history.length-1] : null;
+  const tgt  = STATE.settings.target;
+
+  if (!last) {
+    ["revenue","orders","profit","margin","aov","target-pct"].forEach(k => {
+      const el = document.getElementById(`kpi-${k}`);
+      if (el) el.textContent = k==="margin" ? "0%" : k==="orders" ? "0" : "₱0";
+    });
+    renderKpiBar(0);
+    renderChartProducts([]);
+    renderChartCosts(0,0,0);
+    renderChartHistory([]);
+    renderChartMonthly();
+    return;
+  }
+
+  const pct = tgt > 0 ? (last.revenue/tgt)*100 : 0;
+  const m   = last.margin || 0;
+
+  // Revenue
+  setKpi("revenue", fmt(last.revenue), `${last.orders||0} cups sold`);
+  setKpi("orders",  last.orders||0,    `${fmt(last.aov||0)} AOV`);
+  setKpi("aov",     fmt(last.aov||0),  last.aov >= STATE.settings.lowAov ? "✅ Healthy" : "⚠️ Low AOV");
+  setKpi("profit",  (last.net>=0?"+":"")+fmt(last.net), `Gross: ${fmt(last.profit)}`);
+  setKpi("margin",  m.toFixed(1)+"%",  `COGS: ${fmt(last.cogs)}`);
+  setKpi("target-pct", pct.toFixed(0)+"%", `${fmt(tgt-last.revenue)} remaining`);
+
+  // Card colors
+  colorKpiCard("profit",     last.net >= 0 ? "good" : "bad");
+  colorKpiCard("margin",     m >= 50 ? "good" : m >= 35 ? "warn" : "bad");
+  colorKpiCard("target-pct", pct >= 100 ? "good" : pct >= 80 ? "warn" : "bad");
+
+  renderKpiBar(pct);
+  renderChartProducts(last.products||[]);
+  renderChartCosts(last.revenue, last.cogs, last.expenses);
+  renderChartHistory(STATE.history.slice(-14));
+  renderChartMonthly();
+
+  document.getElementById("target-amt-display").textContent = fmt(tgt);
+  document.getElementById("target-remaining").textContent   = fmt(Math.max(0,tgt-last.revenue));
+  document.getElementById("target-big-pct").textContent     = pct.toFixed(0)+"%";
+  document.getElementById("target-big-pct").style.color     = pct>=100?"var(--grn)":pct>=80?"var(--orn)":"var(--red)";
+}
+
+function setKpi(id, value, sub) {
+  const v = document.getElementById(`kpi-${id}`);
+  const s = document.getElementById(`kpi-${id}-sub`);
+  if (v) v.textContent = value;
+  if (s) s.textContent = sub;
+}
+
+function colorKpiCard(id, cls) {
+  const el = document.getElementById(`kpi-${id}-card`);
+  if (el) { el.classList.remove("good","warn","bad"); el.classList.add(cls); }
+}
+
+function renderKpiBar(pct) {
+  const bar = document.getElementById("target-bar");
+  if (!bar) return;
+  const w = Math.min(100, pct);
+  bar.style.width = w + "%";
+  bar.className = "progress-bar " + (pct>=100?"hit":pct>=80?"":"low");
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  CHARTS
+// ══════════════════════════════════════════════════════════════════════
+const CHART_DEFAULTS = {
+  responsive:true, maintainAspectRatio:false,
+  plugins:{ legend:{labels:{color:"#a09070",font:{family:"DM Mono",size:10}}} },
+  scales:{
+    x:{ ticks:{color:"#5a5040",font:{size:10}}, grid:{color:"rgba(255,210,120,.06)"} },
+    y:{ ticks:{color:"#5a5040",font:{size:10}}, grid:{color:"rgba(255,210,120,.06)"} }
+  }
+};
+
+function mkChart(id, config) {
+  if (charts[id]) charts[id].destroy();
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  charts[id] = new Chart(ctx, config);
+}
+
+function renderChartProducts(products) {
+  const data = products.filter(p=>(p.qty||0)>0);
+  if (data.length === 0) { mkChart("chartProducts",{type:"bar",data:{labels:[],datasets:[]},options:CHART_DEFAULTS}); return; }
+  const labels = data.map(p => p.name?.length>14 ? p.name.slice(0,14)+"…" : p.name||"?");
+  const qtys   = data.map(p => parseFloat(p.qty)||0);
+  const profits= data.map(p => ((parseFloat(p.price)||0)-(parseFloat(p.cost)||0))*(parseFloat(p.qty)||0));
+  mkChart("chartProducts",{
+    type:"bar",
+    data:{labels,datasets:[
+      {label:"Qty Sold",data:qtys,backgroundColor:"rgba(245,200,66,.7)",borderRadius:4,yAxisID:"y"},
+      {label:"Profit (₱)",data:profits,backgroundColor:"rgba(82,201,122,.6)",borderRadius:4,yAxisID:"y1"}
+    ]},
+    options:{...CHART_DEFAULTS,
+      scales:{
+        x:{ticks:{color:"#5a5040",font:{size:9}},grid:{color:"rgba(255,210,120,.04)"}},
+        y:{position:"left",ticks:{color:"#5a5040",font:{size:9}},grid:{color:"rgba(255,210,120,.06)"}},
+        y1:{position:"right",ticks:{color:"#5a5040",font:{size:9}},grid:{drawOnChartArea:false}}
+      }}
+  });
+}
+
+function renderChartCosts(revenue, cogs, expenses) {
+  mkChart("chartCosts",{
+    type:"doughnut",
+    data:{
+      labels:["Gross Profit","COGS","Other Expenses"],
+      datasets:[{
+        data:[Math.max(0,revenue-cogs-expenses), cogs, expenses],
+        backgroundColor:["rgba(82,201,122,.7)","rgba(240,82,82,.6)","rgba(245,158,66,.6)"],
+        borderColor:"transparent",borderWidth:0
+      }]
+    },
+    options:{...CHART_DEFAULTS,cutout:"65%",
+      plugins:{legend:{position:"bottom",labels:{color:"#a09070",font:{size:10},padding:12}}}}
+  });
+}
+
+function renderChartHistory(history) {
+  const filtered = history.filter(h => h.revenue > 0);
+  if (filtered.length === 0) return;
+  const labels  = filtered.map(h => h.date.slice(5));
+  const revenue = filtered.map(h => h.revenue);
+  const profit  = filtered.map(h => h.net);
+  mkChart("chartHistory",{
+    type:"line",
+    data:{labels,datasets:[
+      {label:"Revenue",data:revenue,borderColor:"var(--gold)",backgroundColor:"rgba(245,200,66,.08)",fill:true,tension:.35,borderWidth:2,pointRadius:3,pointBorderColor:"var(--gold)",pointBackgroundColor:"var(--bg)"},
+      {label:"Net Profit",data:profit,borderColor:"var(--grn)",backgroundColor:"rgba(82,201,122,.05)",fill:true,tension:.35,borderWidth:2,pointRadius:3,pointBorderColor:"var(--grn)",pointBackgroundColor:"var(--bg)"}
+    ]},
+    options:{...CHART_DEFAULTS,
+      scales:{
+        x:{ticks:{color:"#5a5040",font:{size:9}},grid:{color:"rgba(255,210,120,.04)"}},
+        y:{ticks:{color:"#5a5040",font:{size:9},callback:v=>`₱${(v/1000).toFixed(0)}K`},grid:{color:"rgba(255,210,120,.06)"}}
+      }}
+  });
+}
+
+function renderChartMonthly() {
+  const labels  = MONTHLY_DATA.map(m => m.m);
+  const revenue = MONTHLY_DATA.map(m => m.rev);
+  const net     = MONTHLY_DATA.map(m => m.net);
+  mkChart("chartMonthly",{
+    type:"bar",
+    data:{labels,datasets:[
+      {label:"Revenue",data:revenue,backgroundColor:revenue.map(v=>v>=180132?"rgba(82,201,122,.7)":"rgba(245,200,66,.55)"),borderRadius:3},
+      {label:"Net Profit",data:net,backgroundColor:net.map(v=>v>=0?"rgba(91,164,245,.5)":"rgba(240,82,82,.5)"),borderRadius:3,type:"line",tension:.3,borderColor:"rgba(91,164,245,.7)",pointRadius:2}
+    ]},
+    options:{...CHART_DEFAULTS,
+      scales:{
+        x:{ticks:{color:"#5a5040",font:{size:9}},grid:{color:"rgba(255,210,120,.04)"}},
+        y:{ticks:{color:"#5a5040",font:{size:9},callback:v=>`₱${(v/1000).toFixed(0)}K`},grid:{color:"rgba(255,210,120,.06)"}}
+      }}
+  });
+}
+
+function renderChartProdDetail(products) {
+  const data = products.filter(p=>(p.qty||0)>0).sort((a,b)=>b.qty-a.qty);
+  if (data.length === 0) return;
+  const labels  = data.map(p => p.name?.slice(0,12)||"?");
+  const qtys    = data.map(p => parseFloat(p.qty)||0);
+  const profits = data.map(p => ((parseFloat(p.price)||0)-(parseFloat(p.cost)||0))*(parseFloat(p.qty)||0));
+  mkChart("chartProdDetail",{
+    type:"bar",
+    data:{labels,datasets:[
+      {label:"Qty Sold",data:qtys,backgroundColor:"rgba(245,200,66,.65)",borderRadius:4,yAxisID:"y"},
+      {label:"Total Profit (₱)",data:profits,backgroundColor:"rgba(82,201,122,.55)",borderRadius:4,yAxisID:"y1"}
+    ]},
+    options:{...CHART_DEFAULTS,indexAxis:"y",
+      scales:{
+        x:{ticks:{color:"#5a5040",font:{size:9}},grid:{color:"rgba(255,210,120,.04)"}},
+        y:{ticks:{color:"#5a5040",font:{size:9}},grid:{color:"rgba(255,210,120,.04)"}},
+        y1:{position:"right",ticks:{color:"#5a5040",font:{size:9}},grid:{drawOnChartArea:false}}
+      }}
+  });
+}
+
+function renderChartMargin(products) {
+  const data = products.filter(p=>(p.qty||0)>0);
+  if (data.length === 0) return;
+  const labels  = data.map(p => p.name?.slice(0,12)||"?");
+  const margins = data.map(p => {
+    const pr = parseFloat(p.price)||0, co = parseFloat(p.cost)||0;
+    return pr > 0 ? ((pr-co)/pr*100) : 0;
+  });
+  mkChart("chartMargin",{
+    type:"bar",
+    data:{labels,datasets:[{
+      label:"Margin %",data:margins,
+      backgroundColor:margins.map(m=>m>=50?"rgba(82,201,122,.7)":m>=35?"rgba(245,158,66,.65)":"rgba(240,82,82,.65)"),
+      borderRadius:4
+    }]},
+    options:{...CHART_DEFAULTS,indexAxis:"y",
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{color:"#5a5040",font:{size:9},callback:v=>v+"%"},grid:{color:"rgba(255,210,120,.04)"},max:100},
+        y:{ticks:{color:"#5a5040",font:{size:9}},grid:{color:"rgba(255,210,120,.04)"}}
+      }}
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  PRODUCT TABLE
+// ══════════════════════════════════════════════════════════════════════
+function renderProductTable() {
+  const last = STATE.history.length > 0 ? STATE.history[STATE.history.length-1] : null;
+  const products = last?.products||[];
+  const tbody = document.getElementById("product-tbody");
+  if (!tbody) return;
+
+  if (!products || products.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--txt3)">No products data. Add today's sales in Daily Input.</td></tr>`;
+    renderChartProdDetail([]);
+    renderChartMargin([]);
+    return;
+  }
+
+  const enriched = products
+    .filter(p => (parseFloat(p.qty)||0) > 0)
+    .map(p => {
+      const qty = parseFloat(p.qty)||0;
+      const price = parseFloat(p.price)||0;
+      const cost = parseFloat(p.cost)||0;
+      const rev = price * qty;
+      const totalCost = cost * qty;
+      const profPerCup = price - cost;
+      const totalProfit = profPerCup * qty;
+      const margin = price > 0 ? (profPerCup/price)*100 : 0;
+      return {name:p.name, qty, price, cost, rev, totalCost, profPerCup, totalProfit, margin};
+    }).sort((a,b) => b.rev - a.rev);
+
+  if (enriched.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--txt3)">No products with quantity > 0.</td></tr>`;
+    return;
+  }
+
+  const topSellerRev = Math.max(...enriched.map(p=>p.rev));
+  const topProfit    = Math.max(...enriched.map(p=>p.totalProfit));
+
+  tbody.innerHTML = enriched.map((p,i) => {
+    const isTopSeller = p.rev === topSellerRev;
+    const isTopProfit = p.totalProfit === topProfit;
+    const mCls = p.margin >= 50 ? "mg-good" : p.margin >= 35 ? "mg-ok" : "mg-bad";
+    const badgeHtml = [
+      isTopSeller ? `<span class="badge badge-gold">⭐ Top Seller</span>` : "",
+      isTopProfit ? `<span class="badge badge-grn">💰 Top Profit</span>` : "",
+      p.margin < STATE.settings.lowMargin ? `<span class="badge badge-red">⚠️ Low Margin</span>` : ""
+    ].filter(Boolean).join(" ");
+    return `<tr class="${isTopSeller||isTopProfit?"highlight-row":""}">
+      <td>${p.name||"?"} ${badgeHtml}</td>
+      <td>${fmt(p.price)}</td>
+      <td>${fmt(p.cost)}</td>
+      <td style="color:var(--txt);font-weight:700">${p.qty}</td>
+      <td style="color:var(--gold)">${fmt(p.rev)}</td>
+      <td style="color:var(--red)">${fmt(p.totalCost)}</td>
+      <td style="color:var(--grn)">${fmt(p.profPerCup)}</td>
+      <td style="color:var(--grn);font-weight:700">${fmt(p.totalProfit)}</td>
+      <td class="${mCls}">${p.margin.toFixed(1)}%</td>
+      <td><span class="badge ${p.margin>=50?"badge-grn":p.margin>=35?"badge-orn":"badge-red"}">${p.margin>=50?"Good":p.margin>=35?"OK":"Review"}</span></td>
+    </tr>`;
+  }).join("");
+
+  // Totals row
+  const totRev   = enriched.reduce((s,p)=>s+p.rev,0);
+  const totCost  = enriched.reduce((s,p)=>s+p.totalCost,0);
+  const totProfit= enriched.reduce((s,p)=>s+p.totalProfit,0);
+  const totQty   = enriched.reduce((s,p)=>s+p.qty,0);
+  const avgMargin= totRev > 0 ? (totProfit/totRev)*100 : 0;
+  tbody.innerHTML += `<tr style="border-top:2px solid var(--brd);background:var(--bg3)">
+    <td style="font-weight:800;color:var(--txt)">TOTAL</td>
+    <td>—</td><td>—</td>
+    <td style="font-weight:800;color:var(--txt)">${totQty}</td>
+    <td style="color:var(--gold);font-weight:800">${fmt(totRev)}</td>
+    <td style="color:var(--red);font-weight:700">${fmt(totCost)}</td>
+    <td>—</td>
+    <td style="color:var(--grn);font-weight:800">${fmt(totProfit)}</td>
+    <td class="${avgMargin>=50?"mg-good":avgMargin>=35?"mg-ok":"mg-bad"}">${avgMargin.toFixed(1)}%</td>
+    <td>—</td>
+  </tr>`;
+
+  renderChartProdDetail(products);
+  renderChartMargin(products);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  SMART INSIGHTS
+// ══════════════════════════════════════════════════════════════════════
+function renderInsights() {
+  const last    = STATE.history.length > 0 ? STATE.history[STATE.history.length-1] : null;
+  const recent  = STATE.history.filter(h=>h.revenue>0).slice(-14);
+  const todayEl = document.getElementById("insights-today");
+  const trendEl = document.getElementById("insights-trend");
+  const prodEl  = document.getElementById("insights-products");
+  if (!todayEl||!trendEl||!prodEl) return;
+
+  const insights_today = [];
+  const insights_trend = [];
+  const insights_prod  = [];
+
+  if (!last) {
+    todayEl.innerHTML = `<div class="insight info"><span class="ico">ℹ️</span><span class="txt">No data yet. Enter today's sales to see insights.</span></div>`;
+    trendEl.innerHTML = `<div class="insight info"><span class="ico">📊</span><span class="txt">Trend analysis requires at least 3 days of data.</span></div>`;
+    prodEl.innerHTML  = `<div class="insight info"><span class="ico">☕</span><span class="txt">Product insights will appear once you log sales.</span></div>`;
+    return;
+  }
+
+  // ── TODAY INSIGHTS ──
+  const tgtPct = last.target > 0 ? (last.revenue/last.target)*100 : 0;
+  if (tgtPct >= 100)
+    insights_today.push({cls:"pos",ico:"🎯",txt:`<strong>Daily target hit!</strong> Revenue of ${fmt(last.revenue)} exceeded target of ${fmt(last.target)} by ${fmt(last.revenue-last.target)}.`});
+  else if (tgtPct >= 80)
+    insights_today.push({cls:"warn",ico:"🔥",txt:`<strong>Almost there!</strong> ${tgtPct.toFixed(0)}% of daily target reached. Need ${fmt(last.target-last.revenue)} more.`});
+  else
+    insights_today.push({cls:"neg",ico:"⚠️",txt:`<strong>Below target</strong> — only ${tgtPct.toFixed(0)}% reached. Still need ${fmt(last.target-last.revenue)} to hit ${fmt(last.target)}.`});
+
+  if (last.margin >= 50)
+    insights_today.push({cls:"pos",ico:"💚",txt:`<strong>Healthy margin</strong> of ${last.margin?.toFixed(1)||0}%. COGS well controlled.`});
+  else if (last.margin >= 35)
+    insights_today.push({cls:"warn",ico:"🟡",txt:`<strong>Moderate margin</strong> of ${last.margin?.toFixed(1)||0}%. Consider reviewing product mix to push above 50%.`});
+  else
+    insights_today.push({cls:"neg",ico:"🔴",txt:`<strong>Low margin alert:</strong> ${last.margin?.toFixed(1)||0}% — below the ${STATE.settings.lowMargin}% threshold. Review COGS.`});
+
+  if (last.aov < STATE.settings.lowAov)
+    insights_today.push({cls:"warn",ico:"📉",txt:`<strong>Low AOV:</strong> ${fmt(last.aov)} is below ₱${STATE.settings.lowAov}. Push upsells — suggest size upgrades or add-ons.`});
+  else
+    insights_today.push({cls:"pos",ico:"💰",txt:`<strong>AOV is healthy:</strong> ${fmt(last.aov)} per cup. Upsell strategy appears effective.`});
+
+  if (last.net > 0)
+    insights_today.push({cls:"pos",ico:"✅",txt:`<strong>Net profit positive:</strong> +${fmt(last.net)} after all expenses.`});
+  else
+    insights_today.push({cls:"neg",ico:"🔻",txt:`<strong>Net loss today:</strong> ${fmt(last.net)}. High expenses of ${fmt(last.expenses)} impacted results.`});
+
+  // ── TREND INSIGHTS ──
+  if (recent.length >= 3) {
+    const avgRevenue = recent.reduce((s,h)=>s+h.revenue,0)/recent.length;
+    const last3 = recent.slice(-3);
+    const declining = last3[0].revenue > last3[1].revenue && last3[1].revenue > last3[2].revenue;
+    const growing   = last3[0].revenue < last3[1].revenue && last3[1].revenue < last3[2].revenue;
+
+    if (last.revenue > avgRevenue)
+      insights_trend.push({cls:"pos",ico:"📈",txt:`<strong>Above average day!</strong> Today's ${fmt(last.revenue)} beats the ${recent.length}-day average of ${fmt(avgRevenue)}.`});
+    else
+      insights_trend.push({cls:"warn",ico:"📊",txt:`Today's revenue is below the ${recent.length}-day average of ${fmt(avgRevenue)} by ${fmt(avgRevenue-last.revenue)}.`});
+
+    if (declining)
+      insights_trend.push({cls:"neg",ico:"⚠️",txt:`<strong>Declining trend detected!</strong> Revenue has dropped for 3 consecutive days: ${last3.map(h=>fmt(h.revenue)).join(" → ")}`});
+    else if (growing)
+      insights_trend.push({cls:"pos",ico:"🚀",txt:`<strong>Growing momentum!</strong> Revenue has risen for 3 consecutive days: ${last3.map(h=>fmt(h.revenue)).join(" → ")}`});
+
+    const avgProfit = recent.reduce((s,h)=>s+h.net,0)/recent.length;
+    insights_trend.push({cls:avgProfit>=0?"pos":"warn",ico:avgProfit>=0?"📈":"📉",txt:`${recent.length}-day average net profit: <strong>${avgProfit>=0?"+":""}${fmt(avgProfit)}/day</strong>. ${avgProfit>=0?"Keep it up!":"Focus on reducing daily expenses."}`});
+
+    // Best and worst
+    const best  = recent.reduce((a,b)=>b.revenue>a.revenue?b:a);
+    const worst = recent.filter(h=>h.revenue>0).reduce((a,b)=>b.revenue<a.revenue?b:a);
+    insights_trend.push({cls:"info",ico:"🏆",txt:`Best day in recent history: <strong>${best.date}</strong> with ${fmt(best.revenue)}. Worst: <strong>${worst.date}</strong> with ${fmt(worst.revenue)}.`});
+  } else {
+    insights_trend.push({cls:"info",ico:"ℹ️",txt:"Log at least 3 days to see trend analysis."});
+  }
+
+  // ── PRODUCT INSIGHTS ──
+  const products = last.products||[];
+  const enriched = products.filter(p=>(p.qty||0)>0).map(p => {
+    const pr = parseFloat(p.price)||0, co = parseFloat(p.cost)||0, qty = parseFloat(p.qty)||0;
+    return {...p, rev:pr*qty, profit:(pr-co)*qty, margin:pr>0?(pr-co)/pr*100:0};
+  });
+
+  if (enriched.length > 0) {
+    const topSeller = enriched.reduce((a,b)=>b.rev>a.rev?b:a);
+    const topProfit = enriched.reduce((a,b)=>b.profit>a.profit?b:a);
+    const lowMargin = enriched.filter(p=>p.margin < STATE.settings.lowMargin);
+
+    insights_prod.push({cls:"pos",ico:"⭐",txt:`<strong>Top seller today:</strong> ${topSeller.name} with ${fmt(topSeller.rev)} revenue (${topSeller.qty} cups).`});
+    insights_prod.push({cls:"pos",ico:"💰",txt:`<strong>Highest profit product:</strong> ${topProfit.name} earned ${fmt(topProfit.profit)} profit (${topProfit.margin.toFixed(1)}% margin).`});
+
+    if (lowMargin.length > 0)
+      insights_prod.push({cls:"neg",ico:"⚠️",txt:`<strong>${lowMargin.length} product(s) with margin below ${STATE.settings.lowMargin}%:</strong> ${lowMargin.map(p=>`${p.name} (${p.margin.toFixed(1)}%)`).join(", ")}. Consider repricing.`});
+
+    const highProfit = enriched.filter(p=>p.margin>=60);
+    if (highProfit.length > 0)
+      insights_prod.push({cls:"pos",ico:"🌟",txt:`<strong>Premium margin products:</strong> ${highProfit.map(p=>p.name).join(", ")} all have 60%+ margins. Push these harder.`});
+  } else {
+    insights_prod.push({cls:"info",ico:"ℹ️",txt:"No product data for latest entry."});
+  }
+
+  function renderList(el, list) {
+    el.innerHTML = list.length === 0
+      ? `<div class="insight info"><span class="ico">ℹ️</span><span class="txt">No insights available.</span></div>`
+      : list.map(i=>`<div class="insight ${i.cls}"><span class="ico">${i.ico}</span><span class="txt">${i.txt}</span></div>`).join("");
+  }
+
+  renderList(todayEl, insights_today);
+  renderList(trendEl, insights_trend);
+  renderList(prodEl,  insights_prod);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  HISTORY
+// ══════════════════════════════════════════════════════════════════════
+function renderHistory() {
+  const list = document.getElementById("history-list");
+  if (!list) return;
+
+  const sorted = [...STATE.history].sort((a,b) => a.date > b.date ? -1 : 1);
+  if (sorted.length === 0) {
+    list.innerHTML = `<div class="empty"><div class="icon">📅</div><p>No history yet. Start logging daily sales.</p></div>`;
+    renderWeeklySummary([]);
+    return;
+  }
+
+  list.innerHTML = sorted.map(h => {
+    const m = h.margin||0;
+    const mColor = m>=50?"var(--grn)":m>=35?"var(--orn)":"var(--red)";
+    const tpct   = h.target>0?(h.revenue/h.target*100):0;
+    const tColor = tpct>=100?"var(--grn)":tpct>=80?"var(--orn)":"var(--red)";
+    return `<div class="history-item">
+      <div class="history-date">${h.date}</div>
+      <div class="history-val"><div class="label">Revenue</div><div class="val" style="color:var(--gold)">${fmt(h.revenue)}</div></div>
+      <div class="history-val"><div class="label">COGS</div><div class="val" style="color:var(--red)">${fmt(h.cogs||0)}</div></div>
+      <div class="history-val"><div class="label">Net Profit</div><div class="val" style="color:${h.net>=0?"var(--grn)":"var(--red)"}">${h.net>=0?"+":""}${fmt(h.net||0)}</div></div>
+      <div class="history-val"><div class="label">Margin</div><div class="val" style="color:${mColor}">${m.toFixed(1)}%</div></div>
+      <div class="history-val"><div class="label">AOV · Orders</div><div class="val" style="color:var(--pur)">${fmt(h.aov||0)} · ${h.orders||0}</div></div>
+      <button class="history-del" onclick="deleteHistoryEntry('${h.date}')" title="Delete">✕</button>
+    </div>`;
+  }).join("");
+
+  renderWeeklySummary(STATE.history.filter(h=>h.revenue>0).slice(-7));
+}
+
+function deleteHistoryEntry(date) {
+  if (!confirm(`Delete entry for ${date}?`)) return;
+  STATE.history = STATE.history.filter(h => h.date !== date);
+  saveState();
+  renderAll();
+}
+
+function clearHistory() {
+  if (!confirm("Clear all daily history entries?")) return;
+  STATE.history = [];
+  saveState();
+  renderAll();
+}
+
+function renderWeeklySummary(recent7) {
+  if (recent7.length === 0) return;
+  const avgSales  = recent7.reduce((s,h)=>s+h.revenue,0)/recent7.length;
+  const avgProfit = recent7.reduce((s,h)=>s+(h.net||0),0)/recent7.length;
+  const avgAov    = recent7.reduce((s,h)=>s+(h.aov||0),0)/recent7.length;
+  const best      = recent7.reduce((a,b)=>b.revenue>a.revenue?b:a);
+  const worst     = recent7.reduce((a,b)=>b.revenue<a.revenue?b:a);
+
+  const set = (id, val) => { const el=document.getElementById(id); if(el)el.textContent=val; };
+  set("wk-avg-sales",  fmt(avgSales));
+  set("wk-avg-profit", (avgProfit>=0?"+":"")+fmt(avgProfit));
+  set("wk-avg-aov",    fmt(avgAov));
+  set("wk-best",       fmt(best.revenue));
+  set("wk-worst",      fmt(worst.revenue));
+
+  const el = document.getElementById("wk-avg-profit");
+  if (el) el.style.color = avgProfit>=0?"var(--grn)":"var(--red)";
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  MONTHLY TABLE
+// ══════════════════════════════════════════════════════════════════════
+function renderMonthlyTable() {
+  const tbody = document.getElementById("monthly-tbody");
+  if (!tbody) return;
+  tbody.innerHTML = [...MONTHLY_DATA].reverse().map((m,i) => {
+    const nm  = m.rev > 0 ? (m.net/m.rev*100) : 0;
+    const vt  = m.rev - m.tgt;
+    const cls = m.net>=0 ? "mg-good" : "mg-bad";
+    const badgeHtml = m.rev >= m.tgt
+      ? `<span class="badge badge-grn">✅ Hit Target</span>`
+      : m.rev >= m.tgt*.8
+      ? `<span class="badge badge-orn">⚡ Near Target</span>`
+      : `<span class="badge badge-red">📉 Below</span>`;
+    return `<tr style="${i===0?"border-top:2px solid var(--gold)":""}">
+      <td style="font-weight:700">${m.m}${i===0?" <span style='font-size:9px;color:var(--gold)'>LATEST</span>":""}</td>
+      <td style="color:var(--gold)">${fmt(m.rev)}</td>
+      <td style="color:var(--red)">${fmt(m.exp)}</td>
+      <td class="${cls}" style="font-weight:700">${m.net>=0?"+":""}${fmt(m.net)}</td>
+      <td class="${cls}">${nm.toFixed(1)}%</td>
+      <td style="color:${vt>=0?"var(--grn)":"var(--red)"}">${vt>=0?"+":""}${fmt(vt)}</td>
+      <td>${badgeHtml}</td>
+    </tr>`;
+  }).join("");
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  PRESET TABLE (SETTINGS)
+// ══════════════════════════════════════════════════════════════════════
+function renderPresetTable() {
+  const tbody = document.getElementById("preset-table-body");
+  if (!tbody) return;
+  const cats = [...new Set(PRESETS.map(p=>p.cat))];
+  let html = "";
+  cats.forEach(cat => {
+    html += `<tr style="background:var(--bg3)"><td colspan="6" style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:.06em;text-transform:uppercase;padding:8px 12px;text-align:left">${cat}</td></tr>`;
+    PRESETS.filter(p=>p.cat===cat).forEach((p,i)=>{
+      const mg = p.price > 0 ? ((p.price-p.cost)/p.price*100) : 0;
+      html += `<tr class="${i%2===0?"":""}">
+        <td style="text-align:left">${p.name}</td>
+        <td style="text-align:left;color:var(--txt3)">${p.cat}</td>
+        <td style="text-align:center;color:var(--txt2)">${p.size}</td>
+        <td style="color:var(--gold)">₱${p.price}</td>
+        <td style="color:var(--red)">₱${p.cost}</td>
+        <td class="${mg>=50?"mg-good":mg>=35?"mg-ok":"mg-bad"}">${mg.toFixed(1)}%</td>
+      </tr>`;
+    });
+  });
+  tbody.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  SETTINGS
+// ══════════════════════════════════════════════════════════════════════
+function saveSettings() {
+  const tgt   = parseFloat(document.getElementById("set-target")?.value)||7000;
+  const moTgt = parseFloat(document.getElementById("set-mo-target")?.value)||180132;
+  const name  = document.getElementById("set-name")?.value||"8 Ounce Café";
+  const aov   = parseFloat(document.getElementById("set-aov")?.value)||120;
+  const mg    = parseFloat(document.getElementById("set-margin")?.value)||50;
+  STATE.settings = { target:tgt, moTarget:moTgt, name, lowAov:aov, lowMargin:mg };
+  saveState();
+  renderAll();
+  alert("Settings saved!");
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════════════════════════════════════════════
+const PAGE_TITLES = {
+  summary:"Executive Summary", input:"Daily Input",
+  products:"Product Performance", insights:"Smart Insights",
+  history:"History & Trends", settings:"Settings"
+};
+
+function showPage(id) {
+  document.querySelectorAll(".page").forEach(el => el.classList.remove("active"));
+  document.querySelectorAll(".nav-item").forEach(el => el.classList.remove("active"));
+  const pg = document.getElementById(`page-${id}`);
+  const nav= document.getElementById(`nav-${id}`);
+  if (pg)  pg.classList.add("active");
+  if (nav) nav.classList.add("active");
+  const pt = document.getElementById("page-title");
+  if (pt) pt.textContent = PAGE_TITLES[id]||id;
+  closeSidebar();
+  // Lazy render
+  if (id==="products") renderProductTable();
+  if (id==="insights") renderInsights();
+  if (id==="history")  { renderHistory(); renderMonthlyTable(); }
+  if (id==="settings") { renderPresetTable(); updateSaveStatus(); }
+  if (id==="summary")  renderSummary();
+}
+
+function openSidebar()  { document.getElementById("sidebar").classList.add("open"); document.getElementById("overlay").classList.add("show"); }
+function closeSidebar() { document.getElementById("sidebar").classList.remove("open"); document.getElementById("overlay").classList.remove("show"); }
+
+// ══════════════════════════════════════════════════════════════════════
+//  UTILITIES
+// ══════════════════════════════════════════════════════════════════════
+function fmt(v) {
+  const n = parseFloat(v)||0;
+  if (Math.abs(n) >= 100000) return "₱" + (n/1000).toFixed(0) + "K";
+  return "₱" + n.toLocaleString("en-PH", {minimumFractionDigits:0, maximumFractionDigits:0});
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════════════════
+function initApp() {
+  // Set today's date in input
+  const dateEl = document.getElementById("input-date");
+  if (dateEl) dateEl.value = new Date().toISOString().slice(0,10);
+
+  // Load settings into settings page
+  const s = STATE.settings;
+  const setV = (id,v) => { const el=document.getElementById(id); if(el) el.value=v; };
+  setV("set-target",    s.target);
+  setV("set-mo-target", s.moTarget);
+  setV("set-name",      s.name);
+  setV("set-aov",       s.lowAov||120);
+  setV("set-margin",    s.lowMargin||50);
+  setV("input-target",  s.target);
+
+  renderPresetButtons();
+  renderProductRows();
+  renderAll();
+}
+
+// Boot
+loadState();
+initApp();
+</script>
+</body>
+</html>
